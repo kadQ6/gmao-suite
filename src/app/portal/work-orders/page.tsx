@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { PortalPrimaryLink } from "@/components/portal/portal-primary-link";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +12,7 @@ export default async function WorkOrdersPage() {
     status: string;
     type: string;
     asset: { code: string; name: string };
+    project: { id: string; code: string; name: string } | null;
     assignee: { name: string } | null;
   }> = [];
   try {
@@ -17,6 +20,7 @@ export default async function WorkOrdersPage() {
       orderBy: { createdAt: "desc" },
       include: {
         asset: { select: { code: true, name: true } },
+        project: { select: { id: true, code: true, name: true } },
         assignee: { select: { name: true } },
       },
     });
@@ -26,7 +30,10 @@ export default async function WorkOrdersPage() {
 
   return (
     <section className="space-y-4">
-      <h2 className="text-xl font-semibold">Ordres de travail</h2>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <h2 className="text-xl font-semibold">Ordres de travail</h2>
+        <PortalPrimaryLink href="/portal/work-orders/new">Nouvel ordre de travail</PortalPrimaryLink>
+      </div>
       <div className="grid gap-3">
         {workOrders.map((workOrder) => (
           <article key={workOrder.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -37,6 +44,20 @@ export default async function WorkOrdersPage() {
                 </h3>
                 <p className="mt-1 text-xs text-slate-500">
                   {workOrder.asset.code} - {workOrder.asset.name}
+                  {workOrder.project ? (
+                    <>
+                      {" "}
+                      · Projet{" "}
+                      <Link
+                        href={`/portal/projects/${workOrder.project.id}`}
+                        className="text-kbio-teal hover:underline"
+                      >
+                        {workOrder.project.code}
+                      </Link>
+                    </>
+                  ) : (
+                    " · Projet —"
+                  )}
                 </p>
               </div>
               <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium">

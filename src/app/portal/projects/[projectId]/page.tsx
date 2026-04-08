@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { PortalPrimaryLink } from "@/components/portal/portal-primary-link";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -41,12 +42,17 @@ export default async function ProjectOverviewPage({ params }: Props) {
 
   return (
     <section className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-slate-900">Pilotage</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          Responsable projet :{" "}
-          <span className="font-medium text-slate-800">{project.owner.name}</span>
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">Pilotage</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Responsable projet :{" "}
+            <span className="font-medium text-slate-800">{project.owner.name}</span>
+          </p>
+        </div>
+        <PortalPrimaryLink href={`/portal/projects/${projectId}/tasks/new`}>
+          Nouvelle tache
+        </PortalPrimaryLink>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {items.map((item) => (

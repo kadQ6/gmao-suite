@@ -1,3 +1,4 @@
+import { PortalPrimaryLink } from "@/components/portal/portal-primary-link";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -26,9 +27,14 @@ export default async function ProjectTasksPage({ params }: Props) {
 
   return (
     <section className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold text-slate-900">Taches du projet</h2>
-        <p className="mt-1 text-sm text-slate-600">Liste des taches rattachees a ce projet uniquement.</p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">Taches du projet</h2>
+          <p className="mt-1 text-sm text-slate-600">Liste des taches rattachees a ce projet uniquement.</p>
+        </div>
+        <PortalPrimaryLink href={`/portal/projects/${projectId}/tasks/new`}>
+          Nouvelle tache
+        </PortalPrimaryLink>
       </div>
       <div className="grid gap-3">
         {tasks.length === 0 ? (

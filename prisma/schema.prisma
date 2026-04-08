@@ -59,6 +59,8 @@ model Project {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   tasks       Task[]
+  assets      Asset[]
+  workOrders  WorkOrder[]
 }
 
 model Task {
@@ -84,6 +86,8 @@ model Asset {
   location      String?
   status        String      @default("OPERATIONAL")
   purchaseDate  DateTime?
+  projectId     String?
+  project       Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
   workOrders    WorkOrder[]
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
@@ -97,10 +101,12 @@ model WorkOrder {
   type          WorkOrderType
   status        WorkOrderStatus @default(OPEN)
   assetId       String
+  projectId     String?
   assigneeId    String?
   scheduledFor  DateTime?
   completedAt   DateTime?
   asset         Asset           @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  project       Project?        @relation(fields: [projectId], references: [id], onDelete: SetNull)
   assignee      User?           @relation("WorkOrderAssignee", fields: [assigneeId], references: [id])
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt

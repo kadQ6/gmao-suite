@@ -44,12 +44,13 @@ async function main() {
 
   const asset = await prisma.asset.upsert({
     where: { code: "EQ-CH-001" },
-    update: {},
+    update: { projectId: project.id },
     create: {
       code: "EQ-CH-001",
       name: "Chaudiere principale",
       category: "Thermique",
       location: "Atelier 1",
+      projectId: project.id,
     },
   });
 
@@ -75,7 +76,7 @@ async function main() {
 
   await prisma.workOrder.upsert({
     where: { reference: "OT-0001" },
-    update: {},
+    update: { projectId: project.id },
     create: {
       reference: "OT-0001",
       title: "Remplacement joint de pompe",
@@ -84,6 +85,7 @@ async function main() {
       status: WorkOrderStatus.IN_PROGRESS,
       assetId: asset.id,
       assigneeId: technician.id,
+      projectId: project.id,
     },
   });
 }

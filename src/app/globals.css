@@ -23,3 +23,50 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
+
+/*
+ * Boutons portail : CSS pur (pas @apply) pour que le rendu soit correct
+ * meme si le JIT Tailwind ou un vieux cache CDN ne applique pas les utilitaires.
+ */
+.portal-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+  background-color: var(--kbio-accent, #0369a1);
+  transition: filter 0.15s ease, opacity 0.15s ease;
+}
+.portal-btn-primary:hover:not(:disabled) {
+  filter: brightness(0.92);
+}
+.portal-btn-primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.portal-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+  color: #334155;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.portal-btn-secondary:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}

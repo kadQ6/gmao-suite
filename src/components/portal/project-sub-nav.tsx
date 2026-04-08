@@ -13,6 +13,12 @@ export function ProjectSubNav({ projectId }: Props) {
   const tabs = [
     { href: base, label: "Vue projet", match: (p: string) => p === base },
     { href: `${base}/tasks`, label: "Taches", match: (p: string) => p.startsWith(`${base}/tasks`) },
+    { href: `${base}/assets`, label: "Equipements", match: (p: string) => p.startsWith(`${base}/assets`) },
+    {
+      href: `${base}/work-orders`,
+      label: "Ordres de travail",
+      match: (p: string) => p.startsWith(`${base}/work-orders`),
+    },
   ];
 
   return (
