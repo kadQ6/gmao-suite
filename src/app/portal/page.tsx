@@ -1,8 +1,9 @@
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-export default async function Home() {
+export default async function PortalDashboardPage() {
   let projects = 0;
   let tasks = 0;
   let openWorkOrders = 0;
@@ -29,9 +30,9 @@ export default async function Home() {
   return (
     <section className="space-y-8">
       <div className="space-y-2">
-        <h2 className="text-2xl font-semibold">Dashboard</h2>
+        <h2 className="text-2xl font-semibold text-slate-900">Tableau de bord</h2>
         <p className="text-sm text-slate-600">
-          Base prete pour le suivi de projet et la maintenance (GMAO).
+          Vue synthetique du suivi projet et de la maintenance (portail K&apos;BIO).
         </p>
       </div>
 
@@ -39,16 +40,35 @@ export default async function Home() {
         {kpis.map((kpi) => (
           <article key={kpi.label} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <p className="text-sm text-slate-500">{kpi.label}</p>
-            <p className="mt-2 text-3xl font-semibold">{kpi.value}</p>
+            <p className="mt-2 text-3xl font-semibold text-slate-900">{kpi.value}</p>
           </article>
         ))}
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h3 className="text-base font-semibold">Prochaine etape</h3>
-        <p className="mt-2 text-sm text-slate-600">
-          Branche l&apos;authentification (Auth.js) et ajoute les formulaires CRUD pour finaliser ton MVP.
-        </p>
+        <h3 className="text-base font-semibold text-slate-900">Raccourcis</h3>
+        <ul className="mt-3 flex flex-wrap gap-3 text-sm">
+          <li>
+            <Link className="text-kbio-teal hover:underline" href="/portal/projects">
+              Projets
+            </Link>
+          </li>
+          <li>
+            <Link className="text-kbio-teal hover:underline" href="/portal/tasks">
+              Taches
+            </Link>
+          </li>
+          <li>
+            <Link className="text-kbio-teal hover:underline" href="/portal/assets">
+              Equipements
+            </Link>
+          </li>
+          <li>
+            <Link className="text-kbio-teal hover:underline" href="/portal/work-orders">
+              Ordres de travail
+            </Link>
+          </li>
+        </ul>
       </div>
     </section>
   );

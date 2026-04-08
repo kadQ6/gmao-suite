@@ -76,9 +76,5 @@ sudo certbot --nginx -d kbio-conseil.com -d www.kbio-conseil.com
 ## 10) Validation finale
 
 - `https://kbio-conseil.com/api/health` doit repondre `ok: true`
-- Verifier pages:
-  - `/`
-  - `/projects`
-  - `/tasks`
-  - `/assets`
-  - `/work-orders`
+- Site public: `/`, `/services`, `/contact`
+- Portail (apres login): `/portal`, `/portal/projects`, etc.

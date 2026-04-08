@@ -1,13 +1,18 @@
-# GMAO Suite (Option B)
+# K'BIO — Site public + portail client (gmao-suite)
 
-Application Next.js pour suivi de projet + maintenance (GMAO).
+Application Next.js : vitrine institutionnelle K'BIO et portail connecte (suivi projet, GMAO).
 
 ## Stack
 
 - Next.js (App Router) + TypeScript
 - Prisma ORM + PostgreSQL
 - Tailwind CSS
-- API routes pretes dans `src/app/api`
+- NextAuth (portail)
+
+## Structure des URLs
+
+- **Site public (vitrine)** : `/`, `/a-propos`, `/services`, `/references`, `/contact`, `/login`
+- **Portail client (apres connexion)** : `/portal`, `/portal/projects`, `/portal/tasks`, `/portal/assets`, `/portal/work-orders`, `/portal/admin`
 
 ## Lancement rapide
 
@@ -43,8 +48,7 @@ Puis ouvrir [http://localhost:3000](http://localhost:3000).
 - Runbook complet: `deploy/DEPLOY_HOSTINGER_VPS.md`
 - Exemple Nginx: `deploy/nginx.kbio-conseil.com.conf`
 - Validation avant mise en ligne: `npm run check:predeploy`
-- Login admin: `/login`
-- Zone admin protegee: `/admin`
+- Connexion portail: `/login` puis redirection vers `/portal`
 
 ## Scripts utiles
 
@@ -57,23 +61,14 @@ Puis ouvrir [http://localhost:3000](http://localhost:3000).
 - `npm run check:env` : valide les variables critiques
 - `npm run check:predeploy` : checks globaux pre-prod
 
-## Acces admin par defaut (a changer)
+## Acces compte demo (a changer en production)
 
 - Email: `admin@kbio-conseil.com`
-- Password: `ADMIN_SEED_PASSWORD` (defaut `Admin@12345`)
-
-## Routes principales
-
-- `/` : dashboard KPI
-- `/projects` : suivi des projets
-- `/tasks` : suivi des taches
-- `/assets` : equipements
-- `/work-orders` : ordres de travail
+- Password: `ADMIN_SEED_PASSWORD` (voir `.env`)
 
 ## API
 
 - `/api/health`
-- `/api/projects`
-- `/api/tasks`
-- `/api/assets`
-- `/api/work-orders`
+- `/api/contact` (formulaire vitrine — Phase A: accusé de réception JSON)
+- `/api/projects`, `/api/tasks`, `/api/assets`, `/api/work-orders` (protégées par session)
+- `/api/auth/*`
