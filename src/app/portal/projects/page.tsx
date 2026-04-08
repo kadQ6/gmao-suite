@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -24,15 +25,21 @@ export default async function ProjectsPage() {
 
   return (
     <section className="space-y-4">
-      <h2 className="text-xl font-semibold">Projets</h2>
+      <div>
+        <h2 className="text-xl font-semibold text-slate-900">Projets</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Selectionnez un projet pour acceder au suivi des taches et au pilotage.
+        </p>
+      </div>
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-50 text-slate-600">
             <tr>
               <th className="px-4 py-3">Code</th>
               <th className="px-4 py-3">Nom</th>
-              <th className="px-4 py-3">Owner</th>
+              <th className="px-4 py-3">Responsable</th>
               <th className="px-4 py-3">Taches</th>
+              <th className="px-4 py-3 text-right">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -42,6 +49,14 @@ export default async function ProjectsPage() {
                 <td className="px-4 py-3">{project.name}</td>
                 <td className="px-4 py-3">{project.owner.name}</td>
                 <td className="px-4 py-3">{project._count.tasks}</td>
+                <td className="px-4 py-3 text-right">
+                  <Link
+                    href={`/portal/projects/${project.id}`}
+                    className="font-medium text-kbio-teal hover:underline"
+                  >
+                    Ouvrir
+                  </Link>
+                </td>
               </tr>
             ))}
           </tbody>

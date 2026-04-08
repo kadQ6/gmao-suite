@@ -12,7 +12,12 @@ Application Next.js : vitrine institutionnelle K'BIO et portail connecte (suivi 
 ## Structure des URLs
 
 - **Site public (vitrine)** : `/`, `/a-propos`, `/services`, `/references`, `/contact`, `/login`
-- **Portail client (apres connexion)** : `/portal`, `/portal/projects`, `/portal/tasks`, `/portal/assets`, `/portal/work-orders`, `/portal/admin`
+- **Portail client (apres connexion)** :
+  - **Vue globale** : `/portal` (KPI + acces rapides)
+  - **Par projet** : `/portal/projects` puis `/portal/projects/[id]` (vue projet + taches du projet)
+  - **GMAO transversal** (hors projet) : `/portal/assets`, `/portal/work-orders`
+  - **Admin** : `/portal/admin`
+  - Ancienne URL `/portal/tasks` redirige vers `/portal/projects`
 
 ## Lancement rapide
 
