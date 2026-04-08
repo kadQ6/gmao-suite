@@ -2,6 +2,7 @@ import Link from "next/link";
 
 const nav = [
   { href: "/a-propos", label: "A propos" },
+  { href: "/secteurs", label: "Secteurs" },
   { href: "/services", label: "Services" },
   { href: "/references", label: "References" },
   { href: "/contact", label: "Contact" },
@@ -9,10 +10,12 @@ const nav = [
 
 export function SiteHeader() {
   return (
-    <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-6 px-4 py-4 lg:px-6">
+    <header className="sticky top-0 z-50 border-b border-teal-100/80 bg-white/95 shadow-sm shadow-teal-900/5 backdrop-blur-md">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 lg:gap-6 lg:px-6">
         <Link href="/" className="group flex items-baseline gap-2">
-          <span className="text-lg font-semibold tracking-tight text-kbio-navy">K&apos;BIO</span>
+          <span className="bg-gradient-to-r from-teal-700 to-indigo-800 bg-clip-text text-lg font-semibold tracking-tight text-transparent">
+            K&apos;BIO
+          </span>
           <span className="hidden text-xs font-medium uppercase tracking-[0.2em] text-slate-500 sm:inline">
             Group
           </span>
@@ -22,7 +25,7 @@ export function SiteHeader() {
             <Link
               key={item.href}
               href={item.href}
-              className="transition hover:text-kbio-navy"
+              className="transition hover:text-teal-700"
             >
               {item.label}
             </Link>
@@ -37,7 +40,7 @@ export function SiteHeader() {
           </Link>
           <Link
             href="/contact"
-            className="rounded-full bg-kbio-navy px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-kbio-navy/90"
+            className="rounded-full bg-gradient-to-r from-teal-600 to-cyan-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-teal-900/15 transition hover:brightness-105"
           >
             Demander une etude
           </Link>

@@ -2,13 +2,15 @@ import Link from "next/link";
 
 export function SiteFooter() {
   return (
-    <footer className="border-t border-slate-200 bg-white">
+    <footer className="border-t border-teal-100/80 bg-gradient-to-b from-slate-50 to-white">
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 lg:grid-cols-3 lg:px-6">
         <div>
-          <p className="text-lg font-semibold text-kbio-navy">K&apos;BIO Group</p>
+          <p className="bg-gradient-to-r from-teal-700 to-indigo-800 bg-clip-text text-lg font-semibold text-transparent">
+            K&apos;BIO Group
+          </p>
           <p className="mt-3 max-w-sm text-sm leading-relaxed text-slate-600">
-            Ingenierie biomedicale, architecture hospitaliere et solutions digitales pour les systemes de
-            sante en Afrique et au-dela.
+            Ingenierie biomedicale, architecture hospitaliere et solutions digitales pour les etablissements de sante
+            et leurs partenaires — en Afrique et au-dela.
           </p>
         </div>
         <div>
@@ -17,6 +19,11 @@ export function SiteFooter() {
             <li>
               <Link href="/a-propos" className="hover:text-kbio-navy">
                 A propos
+              </Link>
+            </li>
+            <li>
+              <Link href="/secteurs" className="hover:text-teal-700">
+                Secteurs
               </Link>
             </li>
             <li>

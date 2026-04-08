@@ -1,6 +1,8 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import Image from "next/image";
+import { IMG } from "@/lib/marketing-images";
 
 export default function ContactPage() {
   const [status, setStatus] = useState<"idle" | "loading" | "ok" | "error">("idle");
@@ -26,20 +28,33 @@ export default function ContactPage() {
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-16 lg:px-6">
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-kbio-teal">Contact</p>
-      <h1 className="mt-3 text-3xl font-semibold tracking-tight text-kbio-navy sm:text-4xl">
-        Demander une etude
-      </h1>
-      <p className="mt-6 max-w-2xl text-slate-600">
-        Decrivez votre besoin (contexte, pays, type d&apos;etablissement, delais). Nous vous repondons dans les meilleurs
-        delais. Les donnees sont traitees pour traiter votre demande.
-      </p>
+    <main className="border-b border-teal-100/80">
+      <div className="mx-auto grid max-w-6xl gap-12 px-4 py-14 lg:grid-cols-2 lg:items-start lg:gap-16 lg:px-6 lg:py-20">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-teal-600">Contact</p>
+          <h1 className="mt-4 text-3xl font-semibold tracking-tight text-kbio-navy sm:text-4xl lg:text-5xl">
+            Demander une etude
+          </h1>
+          <p className="mt-6 max-w-xl text-slate-600 leading-relaxed">
+            Decrivez votre besoin : contexte, pays, type d&apos;etablissement, delais souhaites. Nous revenons vers vous
+            avec une proposition de cadrage. Les donnees servent uniquement a traiter votre demande.
+          </p>
+          <div className="relative mt-10 hidden aspect-[4/3] overflow-hidden rounded-3xl shadow-lg ring-1 ring-slate-200/80 lg:block">
+            <Image
+              src={IMG.building}
+              alt=""
+              fill
+              className="object-cover"
+              sizes="(max-width: 1024px) 0vw, 40vw"
+            />
+            <div className="absolute inset-0 bg-gradient-to-tr from-teal-900/30 to-transparent" />
+          </div>
+        </div>
 
-      <form
-        onSubmit={onSubmit}
-        className="mt-10 max-w-xl space-y-5 rounded-2xl border border-slate-200 bg-white p-8 shadow-sm"
-      >
+        <form
+          onSubmit={onSubmit}
+          className="space-y-5 rounded-2xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/80 p-8 shadow-lg shadow-teal-900/5"
+        >
         <div>
           <label className="mb-1 block text-sm font-medium text-slate-700">Nom complet</label>
           <input
@@ -82,11 +97,12 @@ export default function ContactPage() {
         <button
           type="submit"
           disabled={status === "loading"}
-          className="w-full rounded-full bg-kbio-navy py-3 text-sm font-semibold text-white transition hover:bg-kbio-navy/90 disabled:opacity-60"
+          className="w-full rounded-full bg-gradient-to-r from-teal-600 to-cyan-600 py-3.5 text-sm font-semibold text-white shadow-md shadow-teal-900/15 transition hover:brightness-105 disabled:opacity-60"
         >
           {status === "loading" ? "Envoi..." : "Envoyer"}
         </button>
       </form>
+      </div>
     </main>
   );
 }
