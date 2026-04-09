@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ProjectSubNav } from "@/components/portal/project-sub-nav";
+import { canReadProject } from "@/lib/access";
+import { getPortalContext } from "@/lib/portal-scope";
 import { prisma } from "@/lib/prisma";
 
 type Props = {
@@ -10,6 +12,7 @@ type Props = {
 
 export default async function ProjectPortalLayout({ children, params }: Props) {
   const { projectId } = await params;
+  const ctx = await getPortalContext();
 
   let project: { id: string; code: string; name: string; description: string | null } | null = null;
   try {
@@ -22,6 +25,11 @@ export default async function ProjectPortalLayout({ children, params }: Props) {
   }
 
   if (!project) {
+    notFound();
+  }
+
+  const allowed = await canReadProject(ctx.userId, ctx.role, projectId);
+  if (!allowed) {
     notFound();
   }
 

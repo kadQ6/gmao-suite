@@ -1,10 +1,16 @@
 import Link from "next/link";
 import { PortalPrimaryLink } from "@/components/portal/portal-primary-link";
+import { getAssetScopeWhere, getPortalContext, getProjectScopeWhere, getWorkOrderScopeWhere } from "@/lib/portal-scope";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 export default async function PortalDashboardPage() {
+  const ctx = await getPortalContext();
+  const projectWhere = getProjectScopeWhere(ctx);
+  const assetWhere = getAssetScopeWhere(ctx);
+  const workOrderWhere = getWorkOrderScopeWhere(ctx);
+
   let projectCount = 0;
   let taskCount = 0;
   let openWorkOrders = 0;
@@ -12,11 +18,12 @@ export default async function PortalDashboardPage() {
   let recentProjects: Array<{ id: string; code: string; name: string; _count: { tasks: number } }> = [];
   try {
     const [pc, tc, wo, ac, rp] = await Promise.all([
-      prisma.project.count(),
-      prisma.task.count(),
-      prisma.workOrder.count({ where: { status: { in: ["OPEN", "IN_PROGRESS"] } } }),
-      prisma.asset.count(),
+      prisma.project.count({ where: projectWhere }),
+      prisma.task.count({ where: { project: projectWhere } }),
+      prisma.workOrder.count({ where: { ...workOrderWhere, status: { in: ["OPEN", "IN_PROGRESS"] } } }),
+      prisma.asset.count({ where: assetWhere }),
       prisma.project.findMany({
+        where: projectWhere,
         take: 5,
         orderBy: { updatedAt: "desc" },
         select: { id: true, code: true, name: true, _count: { select: { tasks: true } } },
@@ -60,11 +67,13 @@ export default async function PortalDashboardPage() {
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <h3 className="text-base font-semibold text-slate-900">Actions rapides</h3>
         <p className="mt-1 text-sm text-slate-600">
-          Creer un projet, enregistrer un equipement ou ouvrir les listes completes.
+          {ctx.canWrite
+            ? "Creer un projet, enregistrer un equipement ou ouvrir les listes completes."
+            : "Consultez vos projets et vos indicateurs de suivi."}
         </p>
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          <PortalPrimaryLink href="/portal/projects/new">Nouveau projet</PortalPrimaryLink>
-          <PortalPrimaryLink href="/portal/assets/new">Nouvel equipement</PortalPrimaryLink>
+          {ctx.canWrite ? <PortalPrimaryLink href="/portal/projects/new">Nouveau projet</PortalPrimaryLink> : null}
+          {ctx.canWrite ? <PortalPrimaryLink href="/portal/assets/new">Nouvel equipement</PortalPrimaryLink> : null}
           <Link
             href="/portal/projects"
             className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"

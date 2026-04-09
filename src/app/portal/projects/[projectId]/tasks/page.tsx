@@ -1,4 +1,5 @@
 import { PortalPrimaryLink } from "@/components/portal/portal-primary-link";
+import { getPortalContext } from "@/lib/portal-scope";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -7,6 +8,7 @@ type Props = { params: Promise<{ projectId: string }> };
 
 export default async function ProjectTasksPage({ params }: Props) {
   const { projectId } = await params;
+  const ctx = await getPortalContext();
 
   let tasks: Array<{
     id: string;
@@ -32,9 +34,11 @@ export default async function ProjectTasksPage({ params }: Props) {
           <h2 className="text-lg font-semibold text-slate-900">Taches du projet</h2>
           <p className="mt-1 text-sm text-slate-600">Liste des taches rattachees a ce projet uniquement.</p>
         </div>
-        <PortalPrimaryLink href={`/portal/projects/${projectId}/tasks/new`}>
-          Nouvelle tache
-        </PortalPrimaryLink>
+        {ctx.canWrite ? (
+          <PortalPrimaryLink href={`/portal/projects/${projectId}/tasks/new`}>
+            Nouvelle tache
+          </PortalPrimaryLink>
+        ) : null}
       </div>
       <div className="grid gap-3">
         {tasks.length === 0 ? (

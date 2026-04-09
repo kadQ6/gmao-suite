@@ -1,10 +1,14 @@
 import Link from "next/link";
 import { PortalPrimaryLink } from "@/components/portal/portal-primary-link";
+import { getPortalContext, getProjectScopeWhere } from "@/lib/portal-scope";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProjectsPage() {
+  const ctx = await getPortalContext();
+  const where = getProjectScopeWhere(ctx);
+
   let projects: Array<{
     id: string;
     code: string;
@@ -14,6 +18,7 @@ export default async function ProjectsPage() {
   }> = [];
   try {
     projects = await prisma.project.findMany({
+      where,
       orderBy: { createdAt: "desc" },
       include: {
         owner: { select: { name: true } },
@@ -33,7 +38,7 @@ export default async function ProjectsPage() {
             Selectionnez un projet pour acceder au suivi des taches et au pilotage.
           </p>
         </div>
-        <PortalPrimaryLink href="/portal/projects/new">Nouveau projet</PortalPrimaryLink>
+        {ctx.canWrite ? <PortalPrimaryLink href="/portal/projects/new">Nouveau projet</PortalPrimaryLink> : null}
       </div>
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <table className="w-full text-left text-sm">

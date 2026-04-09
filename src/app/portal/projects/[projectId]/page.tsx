@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { PortalPrimaryLink } from "@/components/portal/portal-primary-link";
+import { getPortalContext } from "@/lib/portal-scope";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -8,6 +9,7 @@ type Props = { params: Promise<{ projectId: string }> };
 
 export default async function ProjectOverviewPage({ params }: Props) {
   const { projectId } = await params;
+  const ctx = await getPortalContext();
 
   const project = await prisma.project
     .findUnique({
@@ -50,9 +52,11 @@ export default async function ProjectOverviewPage({ params }: Props) {
             <span className="font-medium text-slate-800">{project.owner.name}</span>
           </p>
         </div>
-        <PortalPrimaryLink href={`/portal/projects/${projectId}/tasks/new`}>
-          Nouvelle tache
-        </PortalPrimaryLink>
+        {ctx.canWrite ? (
+          <PortalPrimaryLink href={`/portal/projects/${projectId}/tasks/new`}>
+            Nouvelle tache
+          </PortalPrimaryLink>
+        ) : null}
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {items.map((item) => (

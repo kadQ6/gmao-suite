@@ -1,10 +1,14 @@
 import Link from "next/link";
 import { PortalPrimaryLink } from "@/components/portal/portal-primary-link";
+import { getPortalContext, getWorkOrderScopeWhere } from "@/lib/portal-scope";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 export default async function WorkOrdersPage() {
+  const ctx = await getPortalContext();
+  const where = getWorkOrderScopeWhere(ctx);
+
   let workOrders: Array<{
     id: string;
     reference: string;
@@ -17,6 +21,7 @@ export default async function WorkOrdersPage() {
   }> = [];
   try {
     workOrders = await prisma.workOrder.findMany({
+      where,
       orderBy: { createdAt: "desc" },
       include: {
         asset: { select: { code: true, name: true } },
@@ -32,7 +37,7 @@ export default async function WorkOrdersPage() {
     <section className="space-y-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <h2 className="text-xl font-semibold">Ordres de travail</h2>
-        <PortalPrimaryLink href="/portal/work-orders/new">Nouvel ordre de travail</PortalPrimaryLink>
+        {ctx.canWrite ? <PortalPrimaryLink href="/portal/work-orders/new">Nouvel ordre de travail</PortalPrimaryLink> : null}
       </div>
       <div className="grid gap-3">
         {workOrders.map((workOrder) => (

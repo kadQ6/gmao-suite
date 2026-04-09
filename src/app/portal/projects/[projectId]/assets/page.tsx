@@ -1,4 +1,5 @@
 import { PortalPrimaryLink } from "@/components/portal/portal-primary-link";
+import { getPortalContext } from "@/lib/portal-scope";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -7,6 +8,7 @@ type Props = { params: Promise<{ projectId: string }> };
 
 export default async function ProjectAssetsPage({ params }: Props) {
   const { projectId } = await params;
+  const ctx = await getPortalContext();
 
   let assets: Array<{
     id: string;
@@ -36,9 +38,11 @@ export default async function ProjectAssetsPage({ params }: Props) {
             Liste des equipements rattaches a ce projet uniquement.
           </p>
         </div>
-        <PortalPrimaryLink href={`/portal/assets/new?projectId=${encodeURIComponent(projectId)}`}>
-          Ajouter un equipement
-        </PortalPrimaryLink>
+        {ctx.canWrite ? (
+          <PortalPrimaryLink href={`/portal/assets/new?projectId=${encodeURIComponent(projectId)}`}>
+            Ajouter un equipement
+          </PortalPrimaryLink>
+        ) : null}
       </div>
       {assets.length === 0 ? (
         <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">

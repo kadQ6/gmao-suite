@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireSession, requireWritableSession } from "@/lib/api-auth";
+import { getAssetScopeWhere } from "@/lib/portal-scope";
 import { prisma } from "@/lib/prisma";
 
 const createBody = z.object({
@@ -16,7 +17,14 @@ export async function GET() {
   const auth = await requireSession();
   if (!auth.ok) return auth.response;
 
+  const where = getAssetScopeWhere({
+    userId: auth.session.user.id,
+    role: auth.session.user.role,
+    canWrite: true,
+  });
+
   const assets = await prisma.asset.findMany({
+    where,
     orderBy: { createdAt: "desc" },
     include: {
       project: { select: { id: true, code: true, name: true } },

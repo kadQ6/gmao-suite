@@ -1,10 +1,14 @@
 import Link from "next/link";
 import { PortalPrimaryLink } from "@/components/portal/portal-primary-link";
+import { getAssetScopeWhere, getPortalContext } from "@/lib/portal-scope";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 export default async function AssetsPage() {
+  const ctx = await getPortalContext();
+  const where = getAssetScopeWhere(ctx);
+
   let assets: Array<{
     id: string;
     code: string;
@@ -16,6 +20,7 @@ export default async function AssetsPage() {
   }> = [];
   try {
     assets = await prisma.asset.findMany({
+      where,
       orderBy: { createdAt: "desc" },
       include: {
         project: { select: { id: true, code: true, name: true } },
@@ -30,7 +35,7 @@ export default async function AssetsPage() {
     <section className="space-y-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <h2 className="text-xl font-semibold">Equipements</h2>
-        <PortalPrimaryLink href="/portal/assets/new">Nouvel equipement</PortalPrimaryLink>
+        {ctx.canWrite ? <PortalPrimaryLink href="/portal/assets/new">Nouvel equipement</PortalPrimaryLink> : null}
       </div>
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <table className="w-full text-left text-sm">
