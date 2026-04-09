@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { createProjectFromForm } from "@/lib/portal-actions";
-import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -17,17 +16,13 @@ export default async function NewProjectPage({ searchParams }: Props) {
       ? "Code et nom sont obligatoires."
       : sp.err === "duplicate"
         ? "Ce code projet est deja utilise."
-        : sp.err === "client"
-          ? "Client introuvable."
-          : sp.err === "client-contact-required"
+        : sp.err === "client-contact-required"
             ? "Le nom et l'email du responsable client sont obligatoires."
+            : sp.err === "client-name-required"
+              ? "Le nom du client est obligatoire pour creer le client projet."
             : sp.err === "client-contact-email-used"
               ? "Cet email existe deja sur un compte interne, utilisez une autre adresse."
         : null;
-  const clients = await prisma.client.findMany({
-    orderBy: { name: "asc" },
-    select: { id: true, code: true, name: true },
-  });
 
   return (
     <section className="mx-auto max-w-lg space-y-6">
@@ -71,19 +66,18 @@ export default async function NewProjectPage({ searchParams }: Props) {
             <textarea id="description" name="description" className={input} rows={3} maxLength={4000} />
           </div>
           <div>
-            <label htmlFor="clientId" className={label}>
-              Client associe (optionnel)
+            <label htmlFor="clientName" className={label}>
+              Nom du client (optionnel)
             </label>
-            <select id="clientId" name="clientId" className={input} defaultValue="">
-              <option value="">Aucun client pour le moment</option>
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.code} - {client.name}
-                </option>
-              ))}
-            </select>
+            <input
+              id="clientName"
+              name="clientName"
+              className={input}
+              maxLength={200}
+              placeholder="Ex. Hopital Regional de Djibouti"
+            />
             <p className="mt-1 text-xs text-slate-500">
-              Si un client est choisi, un mot de passe client (code d&apos;acces portail) est genere automatiquement.
+              Si un nom client est saisi, le client est cree automatiquement et lie au projet.
             </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">

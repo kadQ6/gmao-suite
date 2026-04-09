@@ -40,22 +40,19 @@ export async function createProjectFromForm(formData: FormData) {
   const code = String(formData.get("code") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim() || null;
-  const clientIdRaw = String(formData.get("clientId") ?? "").trim();
-  const clientId = clientIdRaw || null;
+  const clientName = String(formData.get("clientName") ?? "").trim();
   const clientContactName = String(formData.get("clientContactName") ?? "").trim();
   const clientContactEmail = String(formData.get("clientContactEmail") ?? "").trim().toLowerCase();
   const clientContactPhone = String(formData.get("clientContactPhone") ?? "").trim();
   if (!code || !name) {
     redirect("/portal/projects/new?err=required");
   }
-  if (clientId && (!clientContactName || !clientContactEmail)) {
-    redirect("/portal/projects/new?err=client-contact-required");
+  const wantsClient = Boolean(clientName || clientContactName || clientContactEmail || clientContactPhone);
+  if (wantsClient && !clientName) {
+    redirect("/portal/projects/new?err=client-name-required");
   }
-  if (clientId) {
-    const client = await prisma.client.findUnique({ where: { id: clientId }, select: { id: true } });
-    if (!client) {
-      redirect("/portal/projects/new?err=client");
-    }
+  if (wantsClient && (!clientContactName || !clientContactEmail)) {
+    redirect("/portal/projects/new?err=client-contact-required");
   }
 
   const generatedCode = `KBIO-${randomUUID().slice(0, 8).toUpperCase()}`;
@@ -67,11 +64,32 @@ export async function createProjectFromForm(formData: FormData) {
     });
     createdProjectId = created.id;
 
-    if (clientId) {
+    if (wantsClient) {
+      const normalizedClientCode = `CLT-${clientName
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 24) || randomUUID().slice(0, 8).toUpperCase()}`;
+      const existingClient = await prisma.client.findFirst({
+        where: { name: { equals: clientName, mode: "insensitive" } },
+        select: { id: true, code: true },
+      });
+      const client = existingClient
+        ? existingClient
+        : await prisma.client.create({
+            data: {
+              code: `${normalizedClientCode}-${randomUUID().slice(0, 4).toUpperCase()}`,
+              name: clientName,
+            },
+            select: { id: true, code: true },
+          });
+
       await prisma.projectClient.upsert({
-        where: { projectId_clientId: { projectId: createdProjectId, clientId } },
+        where: { projectId_clientId: { projectId: createdProjectId, clientId: client.id } },
         update: {},
-        create: { projectId: createdProjectId, clientId },
+        create: { projectId: createdProjectId, clientId: client.id },
       });
       const temporaryPassword = generateTemporaryPassword();
       const temporaryHash = await bcrypt.hash(temporaryPassword, 10);
@@ -100,14 +118,14 @@ export async function createProjectFromForm(formData: FormData) {
         select: { id: true, email: true, name: true },
       });
       await prisma.clientUser.upsert({
-        where: { clientId_userId: { clientId, userId: clientUser.id } },
+        where: { clientId_userId: { clientId: client.id, userId: clientUser.id } },
         update: {},
-        create: { clientId, userId: clientUser.id },
+        create: { clientId: client.id, userId: clientUser.id },
       });
       await prisma.clientPortalAccessCode.upsert({
-        where: { clientId_projectId: { clientId, projectId: createdProjectId } },
+        where: { clientId_projectId: { clientId: client.id, projectId: createdProjectId } },
         update: { code: generatedCode, active: true },
-        create: { clientId, projectId: createdProjectId, code: generatedCode, generatedBy: ownerId },
+        create: { clientId: client.id, projectId: createdProjectId, code: generatedCode, generatedBy: ownerId },
       });
       const loginUrl = getPublicAppUrl("/login");
       const forgotUrl = getPublicAppUrl("/forgot-password");
