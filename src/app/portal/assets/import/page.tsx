@@ -45,12 +45,12 @@ export default async function ImportAssetsPage({ searchParams }: Props) {
         {err ? (
           <p className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</p>
         ) : null}
-        <a
+        <Link
           href="/api/exports/assets-template"
           className="mb-4 inline-block text-sm font-medium text-kbio-teal hover:underline"
         >
           Telecharger le modele CSV
-        </a>
+        </Link>
         <form action={importAssetsFromCsv} className="space-y-4">
           <input type="hidden" name="returnTo" value={returnTo} />
           <input type="hidden" name="projectId" value={projectId} />

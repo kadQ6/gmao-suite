@@ -110,6 +110,8 @@ model User {
   activityLogs   ActivityLog[]
   projectRemarks ProjectRemark[]   @relation("ProjectRemarkAuthor")
   passwordResetTokens PasswordResetToken[]
+  gmaoImportTemplates GmaoImportTemplate[]
+  gmaoImportBatches   GmaoImportBatch[]
 }
 
 model Project {
@@ -147,6 +149,8 @@ model Project {
   activityLogs   ActivityLog[]
   accessCodes    ClientPortalAccessCode[]
   remarks        ProjectRemark[]
+  gmaoImportTemplates GmaoImportTemplate[]
+  gmaoImportBatches   GmaoImportBatch[]
 }
 
 model Task {
@@ -445,4 +449,108 @@ model PasswordResetToken {
 
   @@index([userId, createdAt])
   @@index([expiresAt, usedAt])
+}
+
+enum GmaoImportType {
+  EQUIPMENT_INVENTORY
+  MAINTENANCE_PLAN
+  SPARE_STOCK
+  MAINTENANCE_KIT
+  PURCHASE
+  TECHNICIAN
+  SITE
+  HOSPITAL
+  SUPPLIER
+  SERVICE
+}
+
+enum GmaoImportBatchStatus {
+  UPLOADED
+  MAPPING
+  VALIDATED
+  PREVIEWED
+  RUNNING
+  SUCCESS
+  PARTIAL
+  FAILED
+  ABANDONED
+}
+
+enum GmaoImportRowStatus {
+  PENDING
+  VALID
+  WARNING
+  ERROR
+  SKIPPED
+  APPLIED
+}
+
+enum GmaoImportMode {
+  CREATE_ONLY
+  UPDATE_ONLY
+  UPSERT
+  MERGE
+}
+
+model GmaoImportTemplate {
+  id          String         @id @default(cuid())
+  name        String
+  description String?
+  projectId   String?
+  importType  GmaoImportType
+  mappingJson Json
+  dedupeKey   String?
+  headerRow   Int            @default(1)
+  defaultMode GmaoImportMode @default(UPSERT)
+  createdById String
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  project     Project?       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy   User           @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([importType])
+}
+
+model GmaoImportBatch {
+  id                  String                @id @default(cuid())
+  projectId           String
+  importType          GmaoImportType
+  status              GmaoImportBatchStatus @default(UPLOADED)
+  fileName            String
+  storagePath         String
+  sheetName           String?
+  headerRow           Int                   @default(1)
+  mappingSnapshotJson Json?
+  mode                GmaoImportMode        @default(UPSERT)
+  dedupeStrategy      String?
+  dryRun              Boolean               @default(false)
+  statsJson           Json?
+  createdById         String
+  startedAt           DateTime?
+  finishedAt          DateTime?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  project             Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy           User                  @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  rows                GmaoImportRow[]
+
+  @@index([projectId, createdAt])
+  @@index([status])
+}
+
+model GmaoImportRow {
+  id             String               @id @default(cuid())
+  batchId        String
+  rowIndex       Int
+  rawJson        Json
+  normalizedJson Json?
+  status         GmaoImportRowStatus  @default(PENDING)
+  errorCode      String?
+  errorMessage   String?
+  entityId       String?
+  batch          GmaoImportBatch      @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@unique([batchId, rowIndex])
+  @@index([batchId, status])
 }

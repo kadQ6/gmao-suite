@@ -12,6 +12,7 @@ export function ProjectSubNav({ projectId }: Props) {
   const base = `/portal/projects/${projectId}`;
   const tabs = [
     { href: base, label: "Vue projet", match: (p: string) => p === base },
+    { href: `${base}/gmao`, label: "GMAO", match: (p: string) => p.startsWith(`${base}/gmao`) },
     { href: `${base}/tasks`, label: "Taches", match: (p: string) => p.startsWith(`${base}/tasks`) },
     { href: `${base}/assets`, label: "Equipements", match: (p: string) => p.startsWith(`${base}/assets`) },
     {

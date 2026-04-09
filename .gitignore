@@ -20,6 +20,9 @@
 # production
 /build
 
+# GMAO import uploads (local / server working files)
+.data/
+
 # misc
 .DS_Store
 *.pem

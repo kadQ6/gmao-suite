@@ -20,7 +20,7 @@ async function requireUserId() {
   return session.user.id;
 }
 
-async function requireWritableUserId() {
+export async function requireWritableUserId() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     redirect("/login?callbackUrl=/portal");

@@ -38,9 +38,9 @@ export default async function AssetsPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-xl font-semibold">Equipements</h2>
-          <a className="mt-2 inline-block text-sm font-medium text-kbio-teal hover:underline" href="/api/exports/assets">
+          <Link className="mt-2 inline-block text-sm font-medium text-kbio-teal hover:underline" href="/api/exports/assets">
             Exporter Excel (.csv)
-          </a>
+          </Link>
           {ctx.canWrite ? (
             <a className="ml-4 mt-2 inline-block text-sm font-medium text-kbio-teal hover:underline" href="/portal/assets/import?returnTo=/portal/assets">
               Importer CSV

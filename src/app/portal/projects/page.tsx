@@ -53,9 +53,9 @@ export default async function ProjectsPage({ searchParams }: PageProps) {
           <p className="mt-1 text-sm text-slate-600">
             Selectionnez un projet pour acceder au suivi des taches et au pilotage.
           </p>
-          <a className="mt-2 inline-block text-sm font-medium text-kbio-teal hover:underline" href="/api/exports/projects">
+          <Link className="mt-2 inline-block text-sm font-medium text-kbio-teal hover:underline" href="/api/exports/projects">
             Exporter Excel (.csv)
-          </a>
+          </Link>
         </div>
         {ctx.canWrite ? <PortalPrimaryLink href="/portal/projects/new">Nouveau projet</PortalPrimaryLink> : null}
       </div>
