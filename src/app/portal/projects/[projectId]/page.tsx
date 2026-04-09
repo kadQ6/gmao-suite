@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 type Props = {
   params: Promise<{ projectId: string }>;
-  searchParams: Promise<{ created?: string; remarkErr?: string; remarkOk?: string }>;
+  searchParams: Promise<{ created?: string; credentials?: string; remarkErr?: string; remarkOk?: string }>;
 };
 
 export default async function ProjectOverviewPage({ params, searchParams }: Props) {
@@ -80,6 +80,11 @@ export default async function ProjectOverviewPage({ params, searchParams }: Prop
         <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
           Projet cree avec succes. Si un client est lie au projet, son mot de passe client (code d&apos;acces)
           est affiche ci-dessous.
+        </p>
+      ) : null}
+      {sp.credentials === "1" ? (
+        <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          Les identifiants du responsable client ont ete generes et envoyes par email.
         </p>
       ) : null}
       <ProjectAccessCodes projectId={projectId} canWrite={ctx.canWrite} />

@@ -19,6 +19,10 @@ export default async function NewProjectPage({ searchParams }: Props) {
         ? "Ce code projet est deja utilise."
         : sp.err === "client"
           ? "Client introuvable."
+          : sp.err === "client-contact-required"
+            ? "Le nom et l'email du responsable client sont obligatoires."
+            : sp.err === "client-contact-email-used"
+              ? "Cet email existe deja sur un compte interne, utilisez une autre adresse."
         : null;
   const clients = await prisma.client.findMany({
     orderBy: { name: "asc" },
@@ -81,6 +85,45 @@ export default async function NewProjectPage({ searchParams }: Props) {
             <p className="mt-1 text-xs text-slate-500">
               Si un client est choisi, un mot de passe client (code d&apos;acces portail) est genere automatiquement.
             </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <label htmlFor="clientContactName" className={label}>
+                Responsable client - Nom complet
+              </label>
+              <input
+                id="clientContactName"
+                name="clientContactName"
+                className={input}
+                maxLength={160}
+                placeholder="Ex. Fatou Ali"
+              />
+            </div>
+            <div>
+              <label htmlFor="clientContactEmail" className={label}>
+                Responsable client - Email
+              </label>
+              <input
+                id="clientContactEmail"
+                name="clientContactEmail"
+                type="email"
+                className={input}
+                maxLength={190}
+                placeholder="fatou@client.com"
+              />
+            </div>
+            <div>
+              <label htmlFor="clientContactPhone" className={label}>
+                Responsable client - Telephone
+              </label>
+              <input
+                id="clientContactPhone"
+                name="clientContactPhone"
+                className={input}
+                maxLength={40}
+                placeholder="+253 ..."
+              />
+            </div>
           </div>
           <div className="flex flex-wrap gap-3 pt-2">
             <button

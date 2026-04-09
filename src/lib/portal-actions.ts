@@ -1,11 +1,13 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { ProjectStatus, RemarkTab, TaskStatus, WorkOrderStatus, WorkOrderType } from "@prisma/client";
+import bcrypt from "bcryptjs";
+import { ProjectStatus, RemarkTab, Role, TaskStatus, WorkOrderStatus, WorkOrderType } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { getPublicAppUrl, sendEmail } from "@/lib/mailer";
 import { prisma } from "@/lib/prisma";
 import { canWriteData } from "@/lib/rbac";
 
@@ -28,6 +30,11 @@ async function requireWritableUserId() {
   return session.user.id;
 }
 
+function generateTemporaryPassword() {
+  // Includes upper/lower/numeric/symbol characters for basic complexity.
+  return `Kb!${randomUUID().slice(0, 8)}A9`;
+}
+
 export async function createProjectFromForm(formData: FormData) {
   const ownerId = await requireWritableUserId();
   const code = String(formData.get("code") ?? "").trim();
@@ -35,8 +42,14 @@ export async function createProjectFromForm(formData: FormData) {
   const description = String(formData.get("description") ?? "").trim() || null;
   const clientIdRaw = String(formData.get("clientId") ?? "").trim();
   const clientId = clientIdRaw || null;
+  const clientContactName = String(formData.get("clientContactName") ?? "").trim();
+  const clientContactEmail = String(formData.get("clientContactEmail") ?? "").trim().toLowerCase();
+  const clientContactPhone = String(formData.get("clientContactPhone") ?? "").trim();
   if (!code || !name) {
     redirect("/portal/projects/new?err=required");
+  }
+  if (clientId && (!clientContactName || !clientContactEmail)) {
+    redirect("/portal/projects/new?err=client-contact-required");
   }
   if (clientId) {
     const client = await prisma.client.findUnique({ where: { id: clientId }, select: { id: true } });
@@ -60,10 +73,58 @@ export async function createProjectFromForm(formData: FormData) {
         update: {},
         create: { projectId: createdProjectId, clientId },
       });
+      const temporaryPassword = generateTemporaryPassword();
+      const temporaryHash = await bcrypt.hash(temporaryPassword, 10);
+      const existingUser = await prisma.user.findUnique({
+        where: { email: clientContactEmail },
+        select: { id: true, role: true },
+      });
+      if (existingUser && existingUser.role !== Role.CLIENT) {
+        redirect("/portal/projects/new?err=client-contact-email-used");
+      }
+      const clientUser = await prisma.user.upsert({
+        where: { email: clientContactEmail },
+        update: {
+          name: clientContactName,
+          role: Role.CLIENT,
+          password: temporaryHash,
+          active: true,
+        },
+        create: {
+          email: clientContactEmail,
+          name: clientContactName,
+          role: Role.CLIENT,
+          password: temporaryHash,
+          active: true,
+        },
+        select: { id: true, email: true, name: true },
+      });
+      await prisma.clientUser.upsert({
+        where: { clientId_userId: { clientId, userId: clientUser.id } },
+        update: {},
+        create: { clientId, userId: clientUser.id },
+      });
       await prisma.clientPortalAccessCode.upsert({
         where: { clientId_projectId: { clientId, projectId: createdProjectId } },
         update: { code: generatedCode, active: true },
         create: { clientId, projectId: createdProjectId, code: generatedCode, generatedBy: ownerId },
+      });
+      const loginUrl = getPublicAppUrl("/login");
+      const forgotUrl = getPublicAppUrl("/forgot-password");
+      const phoneLine = clientContactPhone ? `Telephone: ${clientContactPhone}\n` : "";
+      await sendEmail({
+        to: clientContactEmail,
+        subject: `Acces portail K'BIO - Projet ${code}`,
+        text:
+          `Bonjour ${clientContactName},\n\n` +
+          `Votre acces au portail K'BIO est actif.\n\n` +
+          `Email: ${clientContactEmail}\n` +
+          `Mot de passe temporaire: ${temporaryPassword}\n` +
+          `Code d'acces client: ${generatedCode}\n` +
+          `${phoneLine}\n` +
+          `Connexion: ${loginUrl}\n` +
+          `Mot de passe oublie: ${forgotUrl}\n\n` +
+          `Pour securite, changez votre mot de passe apres la premiere connexion.`,
       });
     }
   } catch {
@@ -72,7 +133,7 @@ export async function createProjectFromForm(formData: FormData) {
   revalidatePath("/portal");
   revalidatePath("/portal/projects");
   if (createdProjectId) revalidatePath(`/portal/projects/${createdProjectId}`);
-  redirect(createdProjectId ? `/portal/projects/${createdProjectId}?created=1` : "/portal/projects");
+  redirect(createdProjectId ? `/portal/projects/${createdProjectId}?created=1&credentials=1` : "/portal/projects");
 }
 
 export async function createAssetFromForm(formData: FormData) {
