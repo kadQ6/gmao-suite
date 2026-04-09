@@ -1,3 +1,4 @@
+import { ConfirmSubmitButton } from "@/components/portal/confirm-submit-button";
 import { PortalPrimaryLink } from "@/components/portal/portal-primary-link";
 import { deleteAssetFromForm } from "@/lib/portal-actions";
 import { getPortalContext } from "@/lib/portal-scope";
@@ -89,9 +90,9 @@ export default async function ProjectAssetsPage({ params }: Props) {
                       <form action={deleteAssetFromForm}>
                         <input type="hidden" name="assetId" value={asset.id} />
                         <input type="hidden" name="returnTo" value={`/portal/projects/${projectId}/assets`} />
-                        <button type="submit" className="text-sm font-medium text-red-700 hover:underline" onClick={(e) => { if (!confirm("Etes-vous sûr ?")) e.preventDefault(); }}>
+                        <ConfirmSubmitButton className="text-sm font-medium text-red-700 hover:underline">
                           Supprimer
-                        </button>
+                        </ConfirmSubmitButton>
                       </form>
                     </td>
                   ) : null}

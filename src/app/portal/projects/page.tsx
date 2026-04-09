@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ConfirmSubmitButton } from "@/components/portal/confirm-submit-button";
 import { PortalPrimaryLink } from "@/components/portal/portal-primary-link";
 import { deleteProjectFromForm } from "@/lib/portal-actions";
 import { getPortalContext, getProjectScopeWhere } from "@/lib/portal-scope";
@@ -73,12 +74,13 @@ export default async function ProjectsPage() {
                     {ctx.canWrite ? (
                       <form action={deleteProjectFromForm}>
                         <input type="hidden" name="projectId" value={project.id} />
-                        <button type="submit"
+                        <ConfirmSubmitButton
                           className="text-sm font-medium text-amber-700 hover:underline"
                           title="Effacer ce projet"
-                          onClick={(e) => { if (!confirm("Etes-vous sûr ?")) e.preventDefault(); }}>
+                          message="Etes-vous sur ?"
+                        >
                           Effacer
-                        </button>
+                        </ConfirmSubmitButton>
                       </form>
                     ) : null}
                   </div>

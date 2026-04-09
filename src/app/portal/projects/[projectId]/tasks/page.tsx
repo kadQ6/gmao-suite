@@ -1,3 +1,4 @@
+import { ConfirmSubmitButton } from "@/components/portal/confirm-submit-button";
 import { PortalPrimaryLink } from "@/components/portal/portal-primary-link";
 import { deleteTaskFromForm } from "@/lib/portal-actions";
 import { getPortalContext } from "@/lib/portal-scope";
@@ -70,9 +71,9 @@ export default async function ProjectTasksPage({ params }: Props) {
                 <form action={deleteTaskFromForm} className="mt-3">
                   <input type="hidden" name="taskId" value={task.id} />
                   <input type="hidden" name="projectId" value={projectId} />
-                  <button type="submit" className="text-sm font-medium text-red-700 hover:underline" onClick={(e) => { if (!confirm("Etes-vous sûr ?")) e.preventDefault(); }}>
+                  <ConfirmSubmitButton className="text-sm font-medium text-red-700 hover:underline">
                     Supprimer
-                  </button>
+                  </ConfirmSubmitButton>
                 </form>
               ) : null}
             </article>
