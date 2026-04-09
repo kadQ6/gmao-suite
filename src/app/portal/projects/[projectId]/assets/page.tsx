@@ -44,6 +44,14 @@ export default async function ProjectAssetsPage({ params }: Props) {
           >
             Exporter Excel (.csv)
           </a>
+          {ctx.canWrite ? (
+            <a
+              className="ml-4 mt-2 inline-block text-sm font-medium text-kbio-teal hover:underline"
+              href={`/portal/assets/import?returnTo=${encodeURIComponent(`/portal/projects/${projectId}/assets`)}&projectId=${encodeURIComponent(projectId)}`}
+            >
+              Importer CSV
+            </a>
+          ) : null}
         </div>
         {ctx.canWrite ? (
           <PortalPrimaryLink href={`/portal/assets/new?projectId=${encodeURIComponent(projectId)}`}>

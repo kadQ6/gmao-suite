@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { PortalPrimaryLink } from "@/components/portal/portal-primary-link";
-import { cancelProjectFromForm } from "@/lib/portal-actions";
+import { deleteProjectFromForm } from "@/lib/portal-actions";
 import { getPortalContext, getProjectScopeWhere } from "@/lib/portal-scope";
 import { prisma } from "@/lib/prisma";
 
@@ -71,13 +71,13 @@ export default async function ProjectsPage() {
                       Ouvrir
                     </Link>
                     {ctx.canWrite ? (
-                      <form action={cancelProjectFromForm}>
+                      <form action={deleteProjectFromForm}>
                         <input type="hidden" name="projectId" value={project.id} />
                         <button type="submit"
                           className="text-sm font-medium text-amber-700 hover:underline"
-                          title="Annuler ce projet"
+                          title="Effacer ce projet"
                           onClick={(e) => { if (!confirm("Etes-vous sûr ?")) e.preventDefault(); }}>
-                          Annuler
+                          Effacer
                         </button>
                       </form>
                     ) : null}

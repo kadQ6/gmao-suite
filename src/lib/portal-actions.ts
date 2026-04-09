@@ -203,6 +203,18 @@ export async function cancelProjectFromForm(formData: FormData) {
   redirect("/portal/projects");
 }
 
+export async function deleteProjectFromForm(formData: FormData) {
+  await requireWritableUserId();
+  const projectId = String(formData.get("projectId") ?? "").trim();
+  if (!projectId) redirect("/portal/projects");
+
+  await prisma.project.deleteMany({ where: { id: projectId } });
+
+  revalidatePath("/portal");
+  revalidatePath("/portal/projects");
+  redirect("/portal/projects");
+}
+
 export async function deleteTaskFromForm(formData: FormData) {
   await requireWritableUserId();
   const taskId = String(formData.get("taskId") ?? "").trim();
@@ -223,6 +235,112 @@ export async function deleteAssetFromForm(formData: FormData) {
   if (!assetId) redirect(returnTo);
 
   await prisma.asset.deleteMany({ where: { id: assetId } });
+  revalidatePath("/portal/assets");
+  if (returnTo.includes("/portal/projects/")) revalidatePath(returnTo);
+  redirect(returnTo);
+}
+
+function parseCsvLine(line: string): string[] {
+  const out: string[] = [];
+  let cur = "";
+  let i = 0;
+  let quoted = false;
+
+  while (i < line.length) {
+    const ch = line[i];
+    if (ch === "\"") {
+      if (quoted && line[i + 1] === "\"") {
+        cur += "\"";
+        i += 2;
+        continue;
+      }
+      quoted = !quoted;
+      i += 1;
+      continue;
+    }
+    if (ch === "," && !quoted) {
+      out.push(cur.trim());
+      cur = "";
+      i += 1;
+      continue;
+    }
+    cur += ch;
+    i += 1;
+  }
+  out.push(cur.trim());
+  return out;
+}
+
+export async function importAssetsFromCsv(formData: FormData) {
+  await requireWritableUserId();
+  const returnTo = String(formData.get("returnTo") ?? "").trim() || "/portal/assets";
+  const forcedProjectIdRaw = String(formData.get("projectId") ?? "").trim();
+  const forcedProjectId = forcedProjectIdRaw || null;
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}err=empty-file`);
+  }
+
+  const text = await file.text();
+  const rawLines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (rawLines.length < 2) {
+    redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}err=no-data`);
+  }
+
+  const header = parseCsvLine(rawLines[0]).map((h) => h.toLowerCase());
+  const idx = {
+    code: header.indexOf("code"),
+    name: header.indexOf("name"),
+    category: header.indexOf("category"),
+    location: header.indexOf("location"),
+    status: header.indexOf("status"),
+    projectCode: header.indexOf("projectcode"),
+  };
+  if (idx.code < 0 || idx.name < 0 || idx.category < 0) {
+    redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}err=bad-header`);
+  }
+
+  const projectByCode = new Map<string, string>();
+  if (!forcedProjectId) {
+    const projects = await prisma.project.findMany({ select: { id: true, code: true } });
+    for (const p of projects) projectByCode.set(p.code.toLowerCase(), p.id);
+  }
+
+  for (let i = 1; i < rawLines.length; i += 1) {
+    const row = parseCsvLine(rawLines[i]);
+    const code = (row[idx.code] ?? "").trim();
+    const name = (row[idx.name] ?? "").trim();
+    const category = (row[idx.category] ?? "").trim();
+    if (!code || !name || !category) continue;
+
+    let projectId: string | null = forcedProjectId;
+    if (!projectId && idx.projectCode >= 0) {
+      const projectCode = (row[idx.projectCode] ?? "").trim().toLowerCase();
+      projectId = projectCode ? projectByCode.get(projectCode) ?? null : null;
+    }
+
+    await prisma.asset.upsert({
+      where: { code },
+      update: {
+        name,
+        category,
+        location: idx.location >= 0 ? (row[idx.location] ?? "").trim() || null : null,
+        status: idx.status >= 0 ? (row[idx.status] ?? "").trim() || "OPERATIONAL" : "OPERATIONAL",
+        projectId,
+      },
+      create: {
+        code,
+        name,
+        category,
+        location: idx.location >= 0 ? (row[idx.location] ?? "").trim() || null : null,
+        status: idx.status >= 0 ? (row[idx.status] ?? "").trim() || "OPERATIONAL" : "OPERATIONAL",
+        projectId,
+      },
+    });
+  }
+
+  revalidatePath("/portal");
   revalidatePath("/portal/assets");
   if (returnTo.includes("/portal/projects/")) revalidatePath(returnTo);
   redirect(returnTo);

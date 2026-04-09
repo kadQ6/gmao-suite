@@ -40,6 +40,11 @@ export default async function AssetsPage() {
           <a className="mt-2 inline-block text-sm font-medium text-kbio-teal hover:underline" href="/api/exports/assets">
             Exporter Excel (.csv)
           </a>
+          {ctx.canWrite ? (
+            <a className="ml-4 mt-2 inline-block text-sm font-medium text-kbio-teal hover:underline" href="/portal/assets/import?returnTo=/portal/assets">
+              Importer CSV
+            </a>
+          ) : null}
         </div>
         {ctx.canWrite ? <PortalPrimaryLink href="/portal/assets/new">Nouvel equipement</PortalPrimaryLink> : null}
       </div>
