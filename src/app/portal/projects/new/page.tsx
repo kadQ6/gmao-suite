@@ -79,7 +79,7 @@ export default async function NewProjectPage({ searchParams }: Props) {
               ))}
             </select>
             <p className="mt-1 text-xs text-slate-500">
-              Si un client est choisi, un code d&apos;acces portail est genere automatiquement.
+              Si un client est choisi, un mot de passe client (code d&apos;acces portail) est genere automatiquement.
             </p>
           </div>
           <div className="flex flex-wrap gap-3 pt-2">

@@ -109,6 +109,7 @@ model User {
   documents      ProjectDocument[] @relation("ProjectDocumentUploader")
   activityLogs   ActivityLog[]
   projectRemarks ProjectRemark[]   @relation("ProjectRemarkAuthor")
+  passwordResetTokens PasswordResetToken[]
 }
 
 model Project {
@@ -431,4 +432,17 @@ model ProjectRemark {
   createdBy   User      @relation("ProjectRemarkAuthor", fields: [createdById], references: [id], onDelete: Cascade)
 
   @@index([projectId, tab, createdAt])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([expiresAt, usedAt])
 }

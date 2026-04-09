@@ -78,7 +78,8 @@ export default async function ProjectOverviewPage({ params, searchParams }: Prop
       </div>
       {sp.created === "1" ? (
         <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
-          Projet cree avec succes. Si un client est lie au projet, son code d&apos;acces est affiche ci-dessous.
+          Projet cree avec succes. Si un client est lie au projet, son mot de passe client (code d&apos;acces)
+          est affiche ci-dessous.
         </p>
       ) : null}
       <ProjectAccessCodes projectId={projectId} canWrite={ctx.canWrite} />

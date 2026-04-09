@@ -14,6 +14,7 @@ function LoginForm() {
   const [mode, setMode] = useState<"credentials" | "code">("credentials");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const resetOk = searchParams.get("reset") === "1";
 
   function safeCallbackUrl(): string {
     const raw = searchParams.get("callbackUrl");
@@ -51,6 +52,11 @@ function LoginForm() {
       <p className="mt-2 text-sm text-slate-600">
         Connexion securisee : suivi de projets, GMAO et reporting.
       </p>
+      {resetOk ? (
+        <p className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          Mot de passe reinitialise avec succes. Connectez-vous.
+        </p>
+      ) : null}
       <form className="mt-6 space-y-4" onSubmit={onSubmit}>
         <div className="grid grid-cols-2 gap-2 rounded-lg border border-slate-200 p-1">
           <button
@@ -119,6 +125,11 @@ function LoginForm() {
         >
           {loading ? "Connexion..." : "Se connecter"}
         </button>
+        <div className="text-center">
+          <Link href="/forgot-password" className="text-xs font-medium text-kbio-teal hover:underline">
+            Mot de passe oublie ?
+          </Link>
+        </div>
       </form>
       <p className="mt-6 text-center text-sm text-slate-500">
         <Link href="/" className="font-medium text-kbio-teal hover:underline">
