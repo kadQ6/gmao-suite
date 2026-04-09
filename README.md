@@ -60,7 +60,8 @@ Puis ouvrir [http://localhost:3000](http://localhost:3000).
 - `npm run db:up` : demarre PostgreSQL
 - `npm run db:down` : arrete et supprime les volumes
 - `npm run db:push` : pousse le schema Prisma
-- `npm run db:migrate` : cree/applique une migration
+- `npm run db:migrate` : cree/applique une migration (dev)
+- `npm run db:migrate:deploy` : applique les migrations sur la base (production / CI)
 - `npm run db:seed` : injecte les donnees de demo
 - `npm run db:studio` : interface Prisma Studio
 - `npm run check:env` : valide les variables critiques

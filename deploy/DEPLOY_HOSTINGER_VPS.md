@@ -35,9 +35,11 @@ Configurer `.env` avec les vraies valeurs prod:
 ## 4) Base de donnees
 
 ```bash
-npm run db:migrate
+npm run db:migrate:deploy
 npm run db:seed
 ```
+
+En developpement local uniquement : `npm run db:migrate` (`prisma migrate dev`).
 
 ## 5) Verifications pre-deploiement
 
@@ -45,11 +47,17 @@ npm run db:seed
 npm run check:predeploy
 ```
 
-## 6) Demarrer en production
+## 6) Mettre a jour le code puis republier
+
+Sur le VPS (compte deploy), depuis le repertoire de l’app :
 
 ```bash
+cd /var/www/gmao-suite/current
+git pull
 sudo bash deploy/publish-vps.sh
 ```
+
+Le script installe les deps, applique les migrations (`db:migrate:deploy`), seed, verifie l’environnement, rebuild et redemarre PM2.
 
 ## 7) Nginx
 

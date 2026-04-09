@@ -11,7 +11,7 @@ fi
 cd "${APP_DIR}"
 
 npm ci
-npm run db:migrate
+npm run db:migrate:deploy
 npm run db:seed
 npm run check:predeploy
 
