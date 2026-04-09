@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 type Props = {
   params: Promise<{ projectId: string }>;
-  searchParams: Promise<{ created?: string; credentials?: string; remarkErr?: string; remarkOk?: string }>;
+  searchParams: Promise<{ created?: string; credentials?: string; mail?: string; remarkErr?: string; remarkOk?: string }>;
 };
 
 export default async function ProjectOverviewPage({ params, searchParams }: Props) {
@@ -85,6 +85,12 @@ export default async function ProjectOverviewPage({ params, searchParams }: Prop
       {sp.credentials === "1" ? (
         <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
           Les identifiants du responsable client ont ete generes et envoyes par email.
+        </p>
+      ) : null}
+      {sp.mail === "failed" ? (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          Le projet est cree mais l&apos;email n&apos;a pas pu etre envoye. Verifiez la configuration SMTP puis
+          renvoyez les identifiants.
         </p>
       ) : null}
       <ProjectAccessCodes projectId={projectId} canWrite={ctx.canWrite} />

@@ -28,7 +28,7 @@ export async function sendEmail(input: SendMailInput) {
 
   if (!host || !user || !pass) {
     console.log("[mail-disabled]", { to: input.to, subject: input.subject, text: input.text });
-    return;
+    return false;
   }
 
   const transporter = nodemailer.createTransport({
@@ -38,11 +38,17 @@ export async function sendEmail(input: SendMailInput) {
     auth: { user, pass },
   });
 
-  await transporter.sendMail({
-    from,
-    to: input.to,
-    subject: input.subject,
-    text: input.text,
-    html: input.html,
-  });
+  try {
+    await transporter.sendMail({
+      from,
+      to: input.to,
+      subject: input.subject,
+      text: input.text,
+      html: input.html,
+    });
+    return true;
+  } catch (error) {
+    console.error("[mail-error]", error);
+    return false;
+  }
 }

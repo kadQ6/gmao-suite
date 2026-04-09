@@ -57,6 +57,7 @@ export async function createProjectFromForm(formData: FormData) {
 
   const generatedCode = `KBIO-${randomUUID().slice(0, 8).toUpperCase()}`;
   let createdProjectId = "";
+  let emailSent = true;
   try {
     const created = await prisma.project.create({
       data: { code, name, description, ownerId },
@@ -130,7 +131,7 @@ export async function createProjectFromForm(formData: FormData) {
       const loginUrl = getPublicAppUrl("/login");
       const forgotUrl = getPublicAppUrl("/forgot-password");
       const phoneLine = clientContactPhone ? `Telephone: ${clientContactPhone}\n` : "";
-      await sendEmail({
+      emailSent = await sendEmail({
         to: clientContactEmail,
         subject: `Acces portail K'BIO - Projet ${code}`,
         text:
@@ -151,7 +152,11 @@ export async function createProjectFromForm(formData: FormData) {
   revalidatePath("/portal");
   revalidatePath("/portal/projects");
   if (createdProjectId) revalidatePath(`/portal/projects/${createdProjectId}`);
-  redirect(createdProjectId ? `/portal/projects/${createdProjectId}?created=1&credentials=1` : "/portal/projects");
+  const q = new URLSearchParams();
+  q.set("created", "1");
+  q.set("credentials", "1");
+  if (!emailSent) q.set("mail", "failed");
+  redirect(createdProjectId ? `/portal/projects/${createdProjectId}?${q.toString()}` : "/portal/projects");
 }
 
 export async function createAssetFromForm(formData: FormData) {
