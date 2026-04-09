@@ -27,12 +27,12 @@ function LoginForm() {
     setLoading(true);
     setError("");
 
-    const result = await signIn("credentials", {
-      email: mode === "credentials" ? email : undefined,
-      password: mode === "credentials" ? password : undefined,
-      accessCode: mode === "code" ? accessCode : undefined,
-      redirect: false,
-    });
+    const payload =
+      mode === "credentials"
+        ? { email, password, redirect: false }
+        : { accessCode, redirect: false };
+
+    const result = await signIn("credentials", payload);
 
     setLoading(false);
 
