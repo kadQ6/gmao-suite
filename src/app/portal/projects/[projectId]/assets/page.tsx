@@ -81,7 +81,7 @@ export default async function ProjectAssetsPage({ params }: Props) {
                       <form action={deleteAssetFromForm}>
                         <input type="hidden" name="assetId" value={asset.id} />
                         <input type="hidden" name="returnTo" value={`/portal/projects/${projectId}/assets`} />
-                        <button type="submit" className="text-sm font-medium text-red-700 hover:underline">
+                        <button type="submit" className="text-sm font-medium text-red-700 hover:underline" onClick={(e) => { if (!confirm("Etes-vous sûr ?")) e.preventDefault(); }}>
                           Supprimer
                         </button>
                       </form>

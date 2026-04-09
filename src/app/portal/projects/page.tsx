@@ -73,11 +73,10 @@ export default async function ProjectsPage() {
                     {ctx.canWrite ? (
                       <form action={cancelProjectFromForm}>
                         <input type="hidden" name="projectId" value={project.id} />
-                        <button
-                          type="submit"
+                        <button type="submit"
                           className="text-sm font-medium text-amber-700 hover:underline"
                           title="Annuler ce projet"
-                        >
+                          onClick={(e) => { if (!confirm("Etes-vous sûr ?")) e.preventDefault(); }}>
                           Annuler
                         </button>
                       </form>
