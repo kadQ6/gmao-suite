@@ -44,8 +44,19 @@ export async function createProjectFromForm(formData: FormData) {
   const clientContactName = String(formData.get("clientContactName") ?? "").trim();
   const clientContactEmail = String(formData.get("clientContactEmail") ?? "").trim().toLowerCase();
   const clientContactPhone = String(formData.get("clientContactPhone") ?? "").trim();
+  const normalizedProjectName = name.replace(/\s+/g, " ").trim();
+  const normalizedClientName = clientName.replace(/\s+/g, " ").trim();
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const phoneRegex = /^[0-9+()\-.\s]{7,40}$/;
+
   if (!code || !name) {
     redirect("/portal/projects/new?err=required");
+  }
+  if (!/^[A-Z0-9][A-Z0-9-_]{1,63}$/.test(code)) {
+    redirect("/portal/projects/new?err=project-code-format");
+  }
+  if (normalizedProjectName.length < 3) {
+    redirect("/portal/projects/new?err=project-name-format");
   }
   const existingProject = await prisma.project.findFirst({
     where: { code, archivedAt: null },
@@ -54,12 +65,34 @@ export async function createProjectFromForm(formData: FormData) {
   if (existingProject) {
     redirect("/portal/projects/new?err=project-code-used");
   }
+  const existingProjectName = await prisma.project.findFirst({
+    where: { name: { equals: normalizedProjectName, mode: "insensitive" }, archivedAt: null },
+    select: { id: true },
+  });
+  if (existingProjectName) {
+    redirect("/portal/projects/new?err=project-name-used");
+  }
   const wantsClient = Boolean(clientName || clientContactName || clientContactEmail || clientContactPhone);
-  if (wantsClient && !clientName) {
+  if (wantsClient && !normalizedClientName) {
     redirect("/portal/projects/new?err=client-name-required");
   }
   if (wantsClient && (!clientContactName || !clientContactEmail)) {
     redirect("/portal/projects/new?err=client-contact-required");
+  }
+  if (wantsClient && !emailRegex.test(clientContactEmail)) {
+    redirect("/portal/projects/new?err=client-contact-email-format");
+  }
+  if (wantsClient && clientContactPhone && !phoneRegex.test(clientContactPhone)) {
+    redirect("/portal/projects/new?err=client-contact-phone-format");
+  }
+  if (wantsClient) {
+    const existingClientByName = await prisma.client.findFirst({
+      where: { name: { equals: normalizedClientName, mode: "insensitive" } },
+      select: { id: true },
+    });
+    if (existingClientByName) {
+      redirect("/portal/projects/new?err=client-name-used");
+    }
   }
 
   const generatedCode = `KBIO-${randomUUID().slice(0, 8).toUpperCase()}`;
@@ -73,7 +106,7 @@ export async function createProjectFromForm(formData: FormData) {
     createdProjectId = created.id;
 
     if (wantsClient) {
-      const normalizedClientCode = `CLT-${clientName
+      const normalizedClientCode = `CLT-${normalizedClientName
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
         .toUpperCase()
@@ -83,7 +116,7 @@ export async function createProjectFromForm(formData: FormData) {
       const client = await prisma.client.create({
         data: {
           code: `${normalizedClientCode}-${randomUUID().slice(0, 4).toUpperCase()}`,
-          name: clientName,
+          name: normalizedClientName,
         },
         select: { id: true, code: true },
       });
