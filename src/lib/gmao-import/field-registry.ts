@@ -1,5 +1,17 @@
 import { GmaoImportType } from "@prisma/client";
 
+/** Compare les en-têtes Excel aux synonymes (accents, tirets/underscores neutralisés). */
+export function normHeaderKey(s: string): string {
+  return s
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export type GmaoTargetField = {
   key: string;
   label: string;
@@ -11,7 +23,29 @@ export type GmaoTargetField = {
 const EQUIPMENT_FIELDS: GmaoTargetField[] = [
   { key: "code", label: "Code équipement", required: true, synonyms: ["code", "ref", "reference", "id", "numero"] },
   { key: "name", label: "Libellé / désignation", required: true, synonyms: ["name", "nom", "designation", "libelle"] },
-  { key: "category", label: "Catégorie", required: true, synonyms: ["category", "categorie", "famille", "type"] },
+  {
+    key: "category",
+    label: "Catégorie",
+    required: true,
+    synonyms: [
+      "category",
+      "categorie",
+      "catégorie",
+      "famille",
+      "type",
+      "classe",
+      "rubrique",
+      "domaine",
+      "discipline",
+      "groupe",
+      "segment",
+      "sous famille",
+      "sous-famille",
+      "unite fonctionnelle",
+      "specialite",
+      "spécialité",
+    ],
+  },
   { key: "location", label: "Localisation", required: false, synonyms: ["location", "localisation", "lieu"] },
   { key: "site", label: "Site", required: false, synonyms: ["site"] },
   { key: "model", label: "Modèle", required: false, synonyms: ["model", "modele"] },
@@ -37,18 +71,17 @@ export function suggestMapping(
   const fields = getTargetFieldsForImportType(importType);
   const used = new Set<string>();
   const out: Record<string, string | null> = {};
-  const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
 
   for (const h of excelHeaders) {
-    const n = norm(h);
+    const n = normHeaderKey(h);
     let best: string | null = null;
     for (const f of fields) {
       if (used.has(f.key)) continue;
-      if (norm(f.key) === n || norm(f.label) === n) {
+      if (normHeaderKey(f.key) === n || normHeaderKey(f.label) === n) {
         best = f.key;
         break;
       }
-      const syns = f.synonyms?.map(norm) ?? [];
+      const syns = f.synonyms?.map(normHeaderKey) ?? [];
       if (syns.some((s) => n === s || n.includes(s) || s.includes(n))) {
         best = f.key;
         break;

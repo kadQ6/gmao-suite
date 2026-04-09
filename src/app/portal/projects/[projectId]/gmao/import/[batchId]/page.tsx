@@ -96,7 +96,13 @@ export default async function GmaoImportBatchPage({ params, searchParams }: Prop
       ) : null}
       {sp.err === "required" && sp.fields ? (
         <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-          Champs obligatoires non mappes : {sp.fields}
+          Champs obligatoires non mappes :{" "}
+          {sp.fields.split(",").map((k) => {
+            const key = k.trim();
+            const f = targetFields.find((t) => t.key === key);
+            return f ? `${f.label} (${key})` : key;
+          }).join(", ")}
+          . Pour chacun, choisissez la colonne Excel correspondante dans le tableau ci-dessous (asterisque *).
         </p>
       ) : null}
       {sp.err === "state" ? (

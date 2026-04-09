@@ -47,6 +47,13 @@ export function GmaoImportMappingForm({
       <input type="hidden" name="mode" value={mode} />
       <input type="hidden" name="dedupeStrategy" value={dedupe} />
 
+      <p className="text-sm text-slate-600">
+        Les champs marques * sont obligatoires (comme en import CSV : <code className="rounded bg-slate-100 px-1 text-xs">code</code>,{" "}
+        <code className="rounded bg-slate-100 px-1 text-xs">name</code>,{" "}
+        <code className="rounded bg-slate-100 px-1 text-xs">category</code>). Si une colonne n&apos;a pas ete detectee
+        automatiquement, choisissez le bon champ dans la liste.
+      </p>
+
       <div className="overflow-x-auto rounded-lg border border-slate-200">
         <table className="w-full min-w-[480px] text-left text-sm">
           <thead className="bg-slate-50 text-slate-600">
