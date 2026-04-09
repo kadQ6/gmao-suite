@@ -7,8 +7,11 @@ import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-export default async function ProjectsPage() {
+type PageProps = { searchParams: Promise<{ err?: string; deleted?: string }> };
+
+export default async function ProjectsPage({ searchParams }: PageProps) {
   const ctx = await getPortalContext();
+  const sp = await searchParams;
   const where = getProjectScopeWhere(ctx);
 
   let projects: Array<{
@@ -33,6 +36,17 @@ export default async function ProjectsPage() {
 
   return (
     <section className="space-y-4">
+      {sp.deleted === "1" ? (
+        <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+          Projet supprime. Les fiches client orphelines ont ete retirees pour liberer le nom et le code sur une
+          nouvelle creation.
+        </p>
+      ) : null}
+      {sp.err === "delete-failed" ? (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+          La suppression a echoue (donnees liees). Contactez un administrateur ou reessayez.
+        </p>
+      ) : null}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-xl font-semibold text-slate-900">Projets</h2>

@@ -1,3 +1,4 @@
+import { ResendClientCredentialsForm } from "@/components/portal/resend-client-credentials-form";
 import { prisma } from "@/lib/prisma";
 
 type Props = {
@@ -34,6 +35,7 @@ export async function ProjectAccessCodes({ projectId, canWrite }: Props) {
           </p>
         ))}
       </div>
+      <ResendClientCredentialsForm projectId={projectId} />
     </div>
   );
 }

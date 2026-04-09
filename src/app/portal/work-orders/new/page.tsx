@@ -18,9 +18,17 @@ export default async function NewWorkOrderPage({ searchParams }: Props) {
   let projects: Array<{ id: string; code: string; name: string }> = [];
   try {
     const [a, u, p] = await Promise.all([
-      prisma.asset.findMany({ orderBy: { code: "asc" }, select: { id: true, code: true, name: true } }),
+      prisma.asset.findMany({
+        where: { archivedAt: null },
+        orderBy: { code: "asc" },
+        select: { id: true, code: true, name: true },
+      }),
       prisma.user.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
-      prisma.project.findMany({ orderBy: { code: "asc" }, select: { id: true, code: true, name: true } }),
+      prisma.project.findMany({
+        where: { archivedAt: null },
+        orderBy: { code: "asc" },
+        select: { id: true, code: true, name: true },
+      }),
     ]);
     assets = a;
     assignees = u;
@@ -39,15 +47,23 @@ export default async function NewWorkOrderPage({ searchParams }: Props) {
   const errMsg =
     sp.err === "required"
       ? "Titre et equipement sont obligatoires."
-      : sp.err === "asset"
-        ? "Equipement invalide."
-        : sp.err === "project"
-          ? "Projet invalide."
-          : sp.err === "assignee"
-            ? "Assigne invalide."
-            : sp.err === "duplicate"
-              ? "Conflit a l'enregistrement, reessayez."
-              : null;
+      : sp.err === "wo-title-format"
+        ? "Le titre doit contenir entre 3 et 300 caracteres."
+        : sp.err === "wo-title-used"
+          ? "Un ordre avec ce titre existe deja pour cet equipement et ce rattachement projet."
+          : sp.err === "asset"
+            ? "Equipement invalide."
+            : sp.err === "asset-inactive"
+              ? "Equipement introuvable ou archive."
+              : sp.err === "project"
+                ? "Projet invalide ou archive."
+                : sp.err === "asset-project-mismatch"
+                  ? "Cet equipement est rattache a un autre projet. Choisissez le bon projet ou un autre equipement."
+                  : sp.err === "assignee"
+                    ? "Assigne invalide."
+                    : sp.err === "duplicate"
+                      ? "Conflit a l'enregistrement, reessayez."
+                      : null;
 
   return (
     <section className="mx-auto max-w-lg space-y-6">

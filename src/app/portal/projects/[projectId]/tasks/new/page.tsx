@@ -42,9 +42,13 @@ export default async function NewTaskPage({ params, searchParams }: Props) {
   const errMsg =
     sp.err === "required"
       ? "Le titre est obligatoire."
-      : sp.err === "assignee"
-        ? "Assigne invalide."
-        : null;
+      : sp.err === "task-title-format"
+        ? "Le titre doit contenir entre 3 et 500 caracteres."
+        : sp.err === "task-title-used"
+          ? "Une tache active avec ce titre existe deja sur ce projet."
+          : sp.err === "assignee"
+            ? "Assigne invalide."
+            : null;
 
   return (
     <section className="mx-auto max-w-lg space-y-6">

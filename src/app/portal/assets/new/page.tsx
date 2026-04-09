@@ -15,6 +15,7 @@ export default async function NewAssetPage({ searchParams }: Props) {
   let projects: Array<{ id: string; code: string; name: string }> = [];
   try {
     projects = await prisma.project.findMany({
+      where: { archivedAt: null },
       orderBy: { code: "asc" },
       select: { id: true, code: true, name: true },
     });
@@ -29,9 +30,21 @@ export default async function NewAssetPage({ searchParams }: Props) {
       ? "Code, nom et categorie sont obligatoires."
       : sp.err === "duplicate"
         ? "Ce code equipement existe deja."
-        : sp.err === "project"
-          ? "Projet invalide."
-          : null;
+        : sp.err === "asset-code-format"
+          ? "Format code invalide. Lettres/chiffres avec - ou _ (2 a 64 caracteres)."
+          : sp.err === "asset-code-used"
+            ? "Ce code est deja utilise sur un equipement actif."
+            : sp.err === "asset-name-format"
+              ? "Le nom doit contenir au moins 3 caracteres."
+              : sp.err === "asset-name-used"
+                ? "Un equipement avec ce nom existe deja sur ce projet."
+                : sp.err === "asset-category-format"
+                  ? "Categorie invalide (2 a 120 caracteres)."
+                  : sp.err === "asset-location-format"
+                    ? "Localisation trop longue (max 200 caracteres)."
+                    : sp.err === "project"
+                      ? "Projet invalide ou archive."
+                      : null;
 
   return (
     <section className="mx-auto max-w-lg space-y-6">
