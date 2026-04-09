@@ -119,6 +119,7 @@ model Project {
   site           String?
   type           String?
   budgetEstimate Decimal?          @db.Decimal(14, 2)
+  archivedAt     DateTime?
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
   tasks          Task[]
@@ -144,6 +145,7 @@ model Task {
   priority    Int        @default(2)
   status      TaskStatus @default(TODO)
   dueDate     DateTime?
+  archivedAt  DateTime?
   projectId   String
   assigneeId  String?
   project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -169,6 +171,7 @@ model Asset {
   maintenanceCls String?
   purchaseDate   DateTime?
   installedAt    DateTime?
+  archivedAt     DateTime?
   projectId      String?
   project        Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
   visibleToClient Boolean            @default(true)

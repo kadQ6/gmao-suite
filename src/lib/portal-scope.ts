@@ -25,8 +25,9 @@ export async function getPortalContext(): Promise<PortalContext> {
 }
 
 export function getProjectScopeWhere(ctx: PortalContext): Prisma.ProjectWhereInput {
-  if (ctx.role !== Role.CLIENT) return {};
+  if (ctx.role !== Role.CLIENT) return { archivedAt: null };
   return {
+    archivedAt: null,
     clients: {
       some: {
         client: {
@@ -42,8 +43,9 @@ export function getProjectScopeWhere(ctx: PortalContext): Prisma.ProjectWhereInp
 }
 
 export function getAssetScopeWhere(ctx: PortalContext): Prisma.AssetWhereInput {
-  if (ctx.role !== Role.CLIENT) return {};
+  if (ctx.role !== Role.CLIENT) return { archivedAt: null };
   return {
+    archivedAt: null,
     visibleToClient: true,
     project: getProjectScopeWhere(ctx),
   };

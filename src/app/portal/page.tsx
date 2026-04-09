@@ -19,7 +19,7 @@ export default async function PortalDashboardPage() {
   try {
     const [pc, tc, wo, ac, rp] = await Promise.all([
       prisma.project.count({ where: projectWhere }),
-      prisma.task.count({ where: { project: projectWhere } }),
+      prisma.task.count({ where: { archivedAt: null, project: projectWhere } }),
       prisma.workOrder.count({ where: { ...workOrderWhere, status: { in: ["OPEN", "IN_PROGRESS"] } } }),
       prisma.asset.count({ where: assetWhere }),
       prisma.project.findMany({

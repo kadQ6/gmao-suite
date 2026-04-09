@@ -208,7 +208,13 @@ export async function deleteProjectFromForm(formData: FormData) {
   const projectId = String(formData.get("projectId") ?? "").trim();
   if (!projectId) redirect("/portal/projects");
 
-  await prisma.project.deleteMany({ where: { id: projectId } });
+  await prisma.project.updateMany({
+    where: { id: projectId },
+    data: {
+      status: ProjectStatus.CANCELLED,
+      archivedAt: new Date(),
+    },
+  });
 
   revalidatePath("/portal");
   revalidatePath("/portal/projects");
@@ -221,7 +227,10 @@ export async function deleteTaskFromForm(formData: FormData) {
   const projectId = String(formData.get("projectId") ?? "").trim();
   if (!taskId || !projectId) redirect("/portal/projects");
 
-  await prisma.task.deleteMany({ where: { id: taskId, projectId } });
+  await prisma.task.updateMany({
+    where: { id: taskId, projectId },
+    data: { archivedAt: new Date() },
+  });
   revalidatePath(`/portal/projects/${projectId}`);
   revalidatePath(`/portal/projects/${projectId}/tasks`);
   revalidatePath("/portal/projects");
@@ -234,7 +243,14 @@ export async function deleteAssetFromForm(formData: FormData) {
   const returnTo = String(formData.get("returnTo") ?? "").trim() || "/portal/assets";
   if (!assetId) redirect(returnTo);
 
-  await prisma.asset.deleteMany({ where: { id: assetId } });
+  await prisma.asset.updateMany({
+    where: { id: assetId },
+    data: {
+      archivedAt: new Date(),
+      visibleToClient: false,
+      status: "ARCHIVED",
+    },
+  });
   revalidatePath("/portal/assets");
   if (returnTo.includes("/portal/projects/")) revalidatePath(returnTo);
   redirect(returnTo);
@@ -301,18 +317,48 @@ export async function importAssetsFromCsv(formData: FormData) {
     redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}err=bad-header`);
   }
 
+  const allowedStatuses = new Set(["OPERATIONAL", "MAINTENANCE", "OUT_OF_SERVICE", "RETIRED"]);
+
   const projectByCode = new Map<string, string>();
   if (!forcedProjectId) {
     const projects = await prisma.project.findMany({ select: { id: true, code: true } });
     for (const p of projects) projectByCode.set(p.code.toLowerCase(), p.id);
   }
 
+  const inputCodes: string[] = [];
+  for (let i = 1; i < rawLines.length; i += 1) {
+    const row = parseCsvLine(rawLines[i]);
+    const code = (row[idx.code] ?? "").trim();
+    if (code) inputCodes.push(code);
+  }
+  const existing = await prisma.asset.findMany({
+    where: { code: { in: inputCodes } },
+    select: { code: true },
+  });
+  const existingCodes = new Set(existing.map((a) => a.code));
+  const seenCodes = new Set<string>();
+  let created = 0;
+  let updated = 0;
+  let ignored = 0;
+  let invalidStatus = 0;
+
   for (let i = 1; i < rawLines.length; i += 1) {
     const row = parseCsvLine(rawLines[i]);
     const code = (row[idx.code] ?? "").trim();
     const name = (row[idx.name] ?? "").trim();
     const category = (row[idx.category] ?? "").trim();
-    if (!code || !name || !category) continue;
+    if (!code || !name || !category) {
+      ignored += 1;
+      continue;
+    }
+
+    const rawStatus = idx.status >= 0 ? (row[idx.status] ?? "").trim().toUpperCase() : "OPERATIONAL";
+    const status = rawStatus || "OPERATIONAL";
+    if (!allowedStatuses.has(status)) {
+      ignored += 1;
+      invalidStatus += 1;
+      continue;
+    }
 
     let projectId: string | null = forcedProjectId;
     if (!projectId && idx.projectCode >= 0) {
@@ -320,28 +366,39 @@ export async function importAssetsFromCsv(formData: FormData) {
       projectId = projectCode ? projectByCode.get(projectCode) ?? null : null;
     }
 
+    const existed = existingCodes.has(code) || seenCodes.has(code);
+
     await prisma.asset.upsert({
       where: { code },
       update: {
         name,
         category,
         location: idx.location >= 0 ? (row[idx.location] ?? "").trim() || null : null,
-        status: idx.status >= 0 ? (row[idx.status] ?? "").trim() || "OPERATIONAL" : "OPERATIONAL",
+        status,
         projectId,
+        archivedAt: null,
       },
       create: {
         code,
         name,
         category,
         location: idx.location >= 0 ? (row[idx.location] ?? "").trim() || null : null,
-        status: idx.status >= 0 ? (row[idx.status] ?? "").trim() || "OPERATIONAL" : "OPERATIONAL",
+        status,
         projectId,
       },
     });
+    seenCodes.add(code);
+    if (existed) updated += 1;
+    else created += 1;
   }
 
   revalidatePath("/portal");
   revalidatePath("/portal/assets");
   if (returnTo.includes("/portal/projects/")) revalidatePath(returnTo);
-  redirect(returnTo);
+  const q = new URLSearchParams();
+  q.set("created", String(created));
+  q.set("updated", String(updated));
+  q.set("ignored", String(ignored));
+  q.set("invalidStatus", String(invalidStatus));
+  redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}importReport=${encodeURIComponent(q.toString())}`);
 }

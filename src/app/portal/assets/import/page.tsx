@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { importAssetsFromCsv } from "@/lib/portal-actions";
 
-type Props = { searchParams: Promise<{ returnTo?: string; projectId?: string; err?: string }> };
+type Props = {
+  searchParams: Promise<{ returnTo?: string; projectId?: string; err?: string; importReport?: string }>;
+};
 
 export default async function ImportAssetsPage({ searchParams }: Props) {
   const sp = await searchParams;
   const returnTo = sp.returnTo || "/portal/assets";
   const projectId = sp.projectId || "";
+  const report = new URLSearchParams(sp.importReport || "");
 
   const err =
     sp.err === "empty-file"
@@ -16,6 +19,11 @@ export default async function ImportAssetsPage({ searchParams }: Props) {
         : sp.err === "bad-header"
           ? "En-tete invalide. Colonnes obligatoires : code,name,category."
           : null;
+  const created = Number.parseInt(report.get("created") || "0", 10);
+  const updated = Number.parseInt(report.get("updated") || "0", 10);
+  const ignored = Number.parseInt(report.get("ignored") || "0", 10);
+  const invalidStatus = Number.parseInt(report.get("invalidStatus") || "0", 10);
+  const hasReport = sp.importReport != null;
 
   return (
     <section className="mx-auto max-w-2xl space-y-6">
@@ -28,9 +36,21 @@ export default async function ImportAssetsPage({ searchParams }: Props) {
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        {hasReport ? (
+          <p className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+            Import termine - Crees: {created}, Mis a jour: {updated}, Ignores: {ignored}
+            {invalidStatus > 0 ? ` (statuts invalides: ${invalidStatus})` : ""}.
+          </p>
+        ) : null}
         {err ? (
           <p className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</p>
         ) : null}
+        <a
+          href="/api/exports/assets-template"
+          className="mb-4 inline-block text-sm font-medium text-kbio-teal hover:underline"
+        >
+          Telecharger le modele CSV
+        </a>
         <form action={importAssetsFromCsv} className="space-y-4">
           <input type="hidden" name="returnTo" value={returnTo} />
           <input type="hidden" name="projectId" value={projectId} />

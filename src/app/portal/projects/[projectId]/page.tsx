@@ -16,7 +16,7 @@ export default async function ProjectOverviewPage({ params }: Props) {
       where: { id: projectId },
       include: {
         owner: { select: { name: true } },
-        tasks: { select: { status: true } },
+        tasks: { where: { archivedAt: null }, select: { status: true } },
       },
     })
     .catch(() => null);

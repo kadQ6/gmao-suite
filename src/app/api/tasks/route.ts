@@ -25,7 +25,7 @@ export async function GET() {
   });
 
   const tasks = await prisma.task.findMany({
-    where: { project: projectWhere },
+    where: { archivedAt: null, project: projectWhere },
     orderBy: { createdAt: "desc" },
     include: {
       assignee: { select: { id: true, name: true, email: true } },

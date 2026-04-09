@@ -33,6 +33,22 @@ export async function GET(request: Request, { params }: Params) {
     canWrite: true,
   };
 
+  if (entity === "assets-template") {
+    const csv = asCsv(
+      ["code", "name", "category", "location", "status", "projectCode"],
+      [
+        ["EQ-001", "Autoclave Bloc A", "Sterilisation", "Bloc A", "OPERATIONAL", "PRJ-001"],
+        ["EQ-002", "Moniteur Patient 12", "Monitoring", "Reanimation", "MAINTENANCE", "PRJ-001"],
+      ]
+    );
+    return new NextResponse(csv, {
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": 'attachment; filename="modele-import-equipements.csv"',
+      },
+    });
+  }
+
   if (entity === "assets") {
     const where = getAssetScopeWhere(ctx);
     const assets = await prisma.asset.findMany({
@@ -55,7 +71,7 @@ export async function GET(request: Request, { params }: Params) {
   if (entity === "tasks") {
     const projectWhere = getProjectScopeWhere(ctx);
     const tasks = await prisma.task.findMany({
-      where: projectId ? { projectId, project: projectWhere } : { project: projectWhere },
+      where: projectId ? { projectId, archivedAt: null, project: projectWhere } : { archivedAt: null, project: projectWhere },
       orderBy: { createdAt: "desc" },
       include: { project: { select: { code: true } }, assignee: { select: { name: true } } },
     });

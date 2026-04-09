@@ -20,7 +20,7 @@ export default async function ProjectTasksPage({ params }: Props) {
 
   try {
     tasks = await prisma.task.findMany({
-      where: { projectId },
+      where: { projectId, archivedAt: null },
       orderBy: { createdAt: "desc" },
       include: { assignee: { select: { name: true } } },
     });

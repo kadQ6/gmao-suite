@@ -17,7 +17,7 @@ export default async function ProjectPortalLayout({ children, params }: Props) {
   let project: { id: string; code: string; name: string; description: string | null } | null = null;
   try {
     project = await prisma.project.findUnique({
-      where: { id: projectId },
+      where: { id: projectId, archivedAt: null },
       select: { id: true, code: true, name: true, description: true },
     });
   } catch {

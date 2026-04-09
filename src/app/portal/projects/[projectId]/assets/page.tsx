@@ -22,7 +22,7 @@ export default async function ProjectAssetsPage({ params }: Props) {
 
   try {
     assets = await prisma.asset.findMany({
-      where: { projectId },
+      where: { projectId, archivedAt: null },
       orderBy: { createdAt: "desc" },
       include: { _count: { select: { workOrders: true } } },
     });
