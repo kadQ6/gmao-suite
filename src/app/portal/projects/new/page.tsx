@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createProjectFromForm } from "@/lib/portal-actions";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,13 @@ export default async function NewProjectPage({ searchParams }: Props) {
       ? "Code et nom sont obligatoires."
       : sp.err === "duplicate"
         ? "Ce code projet est deja utilise."
+        : sp.err === "client"
+          ? "Client introuvable."
         : null;
+  const clients = await prisma.client.findMany({
+    orderBy: { name: "asc" },
+    select: { id: true, code: true, name: true },
+  });
 
   return (
     <section className="mx-auto max-w-lg space-y-6">
@@ -58,6 +65,22 @@ export default async function NewProjectPage({ searchParams }: Props) {
               Description (optionnel)
             </label>
             <textarea id="description" name="description" className={input} rows={3} maxLength={4000} />
+          </div>
+          <div>
+            <label htmlFor="clientId" className={label}>
+              Client associe (optionnel)
+            </label>
+            <select id="clientId" name="clientId" className={input} defaultValue="">
+              <option value="">Aucun client pour le moment</option>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.code} - {client.name}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-slate-500">
+              Si un client est choisi, un code d&apos;acces portail est genere automatiquement.
+            </p>
           </div>
           <div className="flex flex-wrap gap-3 pt-2">
             <button

@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { ProjectStatus, TaskStatus, WorkOrderStatus, WorkOrderType } from "@prisma/client";
+import { ProjectStatus, RemarkTab, TaskStatus, WorkOrderStatus, WorkOrderType } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
@@ -33,24 +33,46 @@ export async function createProjectFromForm(formData: FormData) {
   const code = String(formData.get("code") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim() || null;
+  const clientIdRaw = String(formData.get("clientId") ?? "").trim();
+  const clientId = clientIdRaw || null;
   if (!code || !name) {
     redirect("/portal/projects/new?err=required");
   }
+  if (clientId) {
+    const client = await prisma.client.findUnique({ where: { id: clientId }, select: { id: true } });
+    if (!client) {
+      redirect("/portal/projects/new?err=client");
+    }
+  }
+
+  const generatedCode = `KBIO-${randomUUID().slice(0, 8).toUpperCase()}`;
+  let createdProjectId = "";
   try {
-    await prisma.project.create({
-      data: {
-        code,
-        name,
-        description,
-        ownerId,
-      },
+    const created = await prisma.project.create({
+      data: { code, name, description, ownerId },
+      select: { id: true },
     });
+    createdProjectId = created.id;
+
+    if (clientId) {
+      await prisma.projectClient.upsert({
+        where: { projectId_clientId: { projectId: createdProjectId, clientId } },
+        update: {},
+        create: { projectId: createdProjectId, clientId },
+      });
+      await prisma.clientPortalAccessCode.upsert({
+        where: { clientId_projectId: { clientId, projectId: createdProjectId } },
+        update: { code: generatedCode, active: true },
+        create: { clientId, projectId: createdProjectId, code: generatedCode, generatedBy: ownerId },
+      });
+    }
   } catch {
     redirect("/portal/projects/new?err=duplicate");
   }
   revalidatePath("/portal");
   revalidatePath("/portal/projects");
-  redirect("/portal/projects");
+  if (createdProjectId) revalidatePath(`/portal/projects/${createdProjectId}`);
+  redirect(createdProjectId ? `/portal/projects/${createdProjectId}?created=1` : "/portal/projects");
 }
 
 export async function createAssetFromForm(formData: FormData) {
@@ -401,4 +423,42 @@ export async function importAssetsFromCsv(formData: FormData) {
   q.set("ignored", String(ignored));
   q.set("invalidStatus", String(invalidStatus));
   redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}importReport=${encodeURIComponent(q.toString())}`);
+}
+
+const REMARK_TAB_VALUES = new Set<RemarkTab>([
+  RemarkTab.OVERVIEW,
+  RemarkTab.TASKS,
+  RemarkTab.ASSETS,
+  RemarkTab.WORK_ORDERS,
+]);
+
+export async function createProjectRemarkFromForm(formData: FormData) {
+  const userId = await requireUserId();
+  const projectId = String(formData.get("projectId") ?? "").trim();
+  const tabRaw = String(formData.get("tab") ?? "").trim().toUpperCase();
+  const tab = tabRaw as RemarkTab;
+  const returnTo = String(formData.get("returnTo") ?? "").trim() || "/portal/projects";
+  const body = String(formData.get("body") ?? "").trim();
+
+  if (!projectId || !REMARK_TAB_VALUES.has(tab) || !body) {
+    redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}remarkErr=required`);
+  }
+  if (body.length > 2000) {
+    redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}remarkErr=too-long`);
+  }
+
+  await prisma.projectRemark.create({
+    data: {
+      projectId,
+      tab,
+      body,
+      createdById: userId,
+    },
+  });
+
+  revalidatePath(`/portal/projects/${projectId}`);
+  revalidatePath(`/portal/projects/${projectId}/tasks`);
+  revalidatePath(`/portal/projects/${projectId}/assets`);
+  revalidatePath(`/portal/projects/${projectId}/work-orders`);
+  redirect(`${returnTo}${returnTo.includes("?") ? "&" : "?"}remarkOk=1`);
 }

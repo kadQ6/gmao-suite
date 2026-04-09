@@ -82,6 +82,13 @@ enum DocumentCategory {
   OTHER
 }
 
+enum RemarkTab {
+  OVERVIEW
+  TASKS
+  ASSETS
+  WORK_ORDERS
+}
+
 model User {
   id             String            @id @default(cuid())
   email          String            @unique
@@ -101,6 +108,7 @@ model User {
   projectActions ProjectAction[]   @relation("ProjectActionAssignee")
   documents      ProjectDocument[] @relation("ProjectDocumentUploader")
   activityLogs   ActivityLog[]
+  projectRemarks ProjectRemark[]   @relation("ProjectRemarkAuthor")
 }
 
 model Project {
@@ -136,6 +144,8 @@ model Project {
   documents      ProjectDocument[]
   alerts         Alert[]
   activityLogs   ActivityLog[]
+  accessCodes    ClientPortalAccessCode[]
+  remarks        ProjectRemark[]
 }
 
 model Task {
@@ -212,6 +222,7 @@ model Client {
   updatedAt DateTime      @updatedAt
   users     ClientUser[]
   projects  ProjectClient[]
+  accessCodes ClientPortalAccessCode[]
 }
 
 model ClientUser {
@@ -388,4 +399,36 @@ model ActivityLog {
   createdAt  DateTime @default(now())
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   project    Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+}
+
+model ClientPortalAccessCode {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  clientId    String
+  projectId   String
+  active      Boolean  @default(true)
+  generatedBy String?
+  createdAt   DateTime @default(now())
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, projectId])
+  @@index([clientId, active])
+  @@index([projectId, active])
+}
+
+model ProjectRemark {
+  id          String    @id @default(cuid())
+  projectId   String
+  tab         RemarkTab
+  body        String
+  createdById String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy   User      @relation("ProjectRemarkAuthor", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([projectId, tab, createdAt])
 }

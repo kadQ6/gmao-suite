@@ -121,6 +121,26 @@ async function main() {
     },
   });
 
+  await prisma.clientPortalAccessCode.upsert({
+    where: {
+      clientId_projectId: {
+        clientId: client.id,
+        projectId: project.id,
+      },
+    },
+    update: {
+      code: "KBIO-DEMO001",
+      active: true,
+    },
+    create: {
+      clientId: client.id,
+      projectId: project.id,
+      code: "KBIO-DEMO001",
+      active: true,
+      generatedBy: admin.id,
+    },
+  });
+
   await prisma.projectMember.upsert({
     where: {
       projectId_userId: {

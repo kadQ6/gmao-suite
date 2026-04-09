@@ -1,3 +1,5 @@
+import { RemarkTab } from "@prisma/client";
+import { ProjectRemarks } from "@/components/portal/project-remarks";
 import { ConfirmSubmitButton } from "@/components/portal/confirm-submit-button";
 import { PortalPrimaryLink } from "@/components/portal/portal-primary-link";
 import { deleteTaskFromForm } from "@/lib/portal-actions";
@@ -6,10 +8,14 @@ import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: Promise<{ projectId: string }> };
+type Props = {
+  params: Promise<{ projectId: string }>;
+  searchParams: Promise<{ remarkErr?: string; remarkOk?: string }>;
+};
 
-export default async function ProjectTasksPage({ params }: Props) {
+export default async function ProjectTasksPage({ params, searchParams }: Props) {
   const { projectId } = await params;
+  const sp = await searchParams;
   const ctx = await getPortalContext();
 
   let tasks: Array<{
@@ -80,6 +86,21 @@ export default async function ProjectTasksPage({ params }: Props) {
           ))
         )}
       </div>
+      {sp.remarkErr ? (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          Remarque invalide. Verifiez le contenu puis recommencez.
+        </p>
+      ) : null}
+      {sp.remarkOk === "1" ? (
+        <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          Remarque ajoutee.
+        </p>
+      ) : null}
+      <ProjectRemarks
+        projectId={projectId}
+        tab={RemarkTab.TASKS}
+        returnTo={`/portal/projects/${projectId}/tasks`}
+      />
     </section>
   );
 }

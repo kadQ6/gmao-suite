@@ -15,15 +15,51 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
+        accessCode: { label: "Code d'acces", type: "text" },
       },
       async authorize(credentials) {
+        const accessCode = credentials?.accessCode?.trim();
+        if (accessCode) {
+          const access = await prisma.clientPortalAccessCode.findFirst({
+            where: {
+              code: accessCode,
+              active: true,
+              OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+            },
+            include: {
+              client: {
+                include: {
+                  users: {
+                    include: {
+                      user: true,
+                    },
+                  },
+                },
+              },
+            },
+          });
+          const clientUser = access?.client.users.find((u) => u.user.role === Role.CLIENT && u.user.active)?.user;
+          if (!clientUser) return null;
+
+          await prisma.clientPortalAccessCode.update({
+            where: { id: access.id },
+            data: { lastUsedAt: new Date() },
+          });
+          return {
+            id: clientUser.id,
+            email: clientUser.email,
+            name: clientUser.name,
+            role: clientUser.role,
+          };
+        }
+
         if (!credentials?.email || !credentials?.password) return null;
 
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
         });
 
-        if (!user?.password) return null;
+        if (!user?.password || !user.active) return null;
 
         const ok = await bcrypt.compare(credentials.password, user.password);
         if (!ok) return null;
