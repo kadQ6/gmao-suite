@@ -21,10 +21,8 @@ async function main() {
 
   const admin = await prisma.user.upsert({
     where: { email: "admin@kbio-conseil.com" },
-    update: {
-      password: adminPasswordHash,
-      role: Role.ADMIN,
-    },
+    // Ne pas re-ecrire le mot de passe au redeploiement (publish-vps.sh lance le seed a chaque fois).
+    update: { role: Role.ADMIN },
     create: {
       email: "admin@kbio-conseil.com",
       name: "Admin KBIO",
@@ -47,10 +45,7 @@ async function main() {
   const clientPasswordHash = await bcrypt.hash(clientPasswordPlain, 10);
   const clientUser = await prisma.user.upsert({
     where: { email: "client@hopital-regional.example" },
-    update: {
-      role: Role.CLIENT,
-      password: clientPasswordHash,
-    },
+    update: { role: Role.CLIENT },
     create: {
       email: "client@hopital-regional.example",
       name: "Client Hopital Regional",

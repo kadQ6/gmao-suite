@@ -59,6 +59,8 @@ sudo bash deploy/publish-vps.sh
 
 Le script installe les deps, applique les migrations (`db:migrate:deploy`), seed, verifie l’environnement, rebuild et redemarre PM2.
 
+**Comptes mot de passe** : le seed ne reinitialise plus les mots de passe admin / client existants a chaque publication (seulement a la creation du compte). Sur une **premiere** installation, definir `ADMIN_SEED_PASSWORD` et `CLIENT_SEED_PASSWORD` dans `.env` avant le premier seed, ou utiliser les defauts du fichier `prisma/seed.ts`.
+
 ## 7) Nginx
 
 ```bash
