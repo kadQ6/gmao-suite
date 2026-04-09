@@ -23,6 +23,7 @@ export default async function ProjectOverviewPage({ params, searchParams }: Prop
       where: { id: projectId },
       include: {
         owner: { select: { name: true } },
+        clients: { include: { client: { select: { name: true, code: true } } }, take: 1 },
         tasks: { where: { archivedAt: null }, select: { status: true } },
       },
     })
@@ -41,6 +42,8 @@ export default async function ProjectOverviewPage({ params, searchParams }: Prop
     blocked: tasks.filter((t) => t.status === "BLOCKED").length,
   };
 
+  const clientLabel = project.clients[0]?.client.name ?? "Client non renseigne";
+
   const items = [
     { label: "Total taches", value: stats.tasks },
     { label: "A faire", value: stats.todo },
@@ -53,7 +56,8 @@ export default async function ProjectOverviewPage({ params, searchParams }: Prop
     <section className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">Pilotage</h2>
+          <h2 className="text-lg font-semibold text-slate-900">{clientLabel}</h2>
+          <p className="mt-1 text-sm font-medium text-slate-700">{project.name}</p>
           <p className="mt-1 text-sm text-slate-600">
             Responsable projet :{" "}
             <span className="font-medium text-slate-800">{project.owner.name}</span>

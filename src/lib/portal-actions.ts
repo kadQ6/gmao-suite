@@ -73,19 +73,13 @@ export async function createProjectFromForm(formData: FormData) {
         .replace(/[^A-Z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "")
         .slice(0, 24) || randomUUID().slice(0, 8).toUpperCase()}`;
-      const existingClient = await prisma.client.findFirst({
-        where: { name: { equals: clientName, mode: "insensitive" } },
+      const client = await prisma.client.create({
+        data: {
+          code: `${normalizedClientCode}-${randomUUID().slice(0, 4).toUpperCase()}`,
+          name: clientName,
+        },
         select: { id: true, code: true },
       });
-      const client = existingClient
-        ? existingClient
-        : await prisma.client.create({
-            data: {
-              code: `${normalizedClientCode}-${randomUUID().slice(0, 4).toUpperCase()}`,
-              name: clientName,
-            },
-            select: { id: true, code: true },
-          });
 
       await prisma.projectClient.upsert({
         where: { projectId_clientId: { projectId: createdProjectId, clientId: client.id } },
@@ -98,7 +92,7 @@ export async function createProjectFromForm(formData: FormData) {
         where: { email: clientContactEmail },
         select: { id: true, role: true },
       });
-      if (existingUser && existingUser.role !== Role.CLIENT) {
+      if (existingUser) {
         redirect("/portal/projects/new?err=client-contact-email-used");
       }
       const clientUser = await prisma.user.upsert({
