@@ -17,6 +17,8 @@ const maintenanceNav = [
 
 const adminNav = [{ href: "/portal/admin", label: "Admin" }];
 
+const docsNav = [{ href: "/portal/docs", label: "Documentation technique" }];
+
 export default function PortalLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
@@ -60,6 +62,18 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                   key={item.href}
                   href={item.href}
                   className="text-slate-600 transition hover:text-kbio-navy"
+                >
+                  {item.label}
+                </Link>
+              ))}
+              <span className="hidden text-xs font-semibold uppercase tracking-wide text-slate-400 lg:inline">
+                Ressources
+              </span>
+              {docsNav.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="text-slate-600 transition hover:text-kbio-teal"
                 >
                   {item.label}
                 </Link>
