@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { isAdminRole } from "@/lib/rbac";
+import { canWriteData, isAdminRole } from "@/lib/rbac";
 
 export async function requireSession() {
   const session = await getServerSession(authOptions);
@@ -22,6 +22,20 @@ export async function requireAdminSession() {
     return {
       ok: false as const,
       response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+    };
+  }
+
+  return auth;
+}
+
+export async function requireWritableSession() {
+  const auth = await requireSession();
+  if (!auth.ok) return auth;
+
+  if (!canWriteData(auth.session.user.role)) {
+    return {
+      ok: false as const,
+      response: NextResponse.json({ error: "Forbidden: read-only account" }, { status: 403 }),
     };
   }
 

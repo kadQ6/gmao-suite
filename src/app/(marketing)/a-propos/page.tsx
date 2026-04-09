@@ -7,12 +7,12 @@ import { IMG } from "@/lib/marketing-images";
 export const metadata: Metadata = {
   title: "A propos",
   description:
-    "Vision, mission et presence de K'BIO Group : ingenierie sante, terrain et outils numeriques au service des etablissements.",
+    "Vision, mission et presence de K'BIO : ingenierie santé, terrain et outils numériques au service des établissements.",
 };
 
 const entities = [
-  { name: "K'BIO France", role: "Siege, ingenierie et coordination de programmes" },
-  { name: "K'BIO Djibouti", role: "Proximite terrain et deploiement regional" },
+  { name: "K'BIO sas", role: "Siege, ingenierie et coordination de programmes" },
+  { name: "K'BIO sarl", role: "Proximite terrain et deploiement regional" },
   { name: "RIAL Tech", role: "Partenaire technique (selon missions)" },
   { name: "CiMB", role: "Maintenance biomedicale et conformite" },
 ];

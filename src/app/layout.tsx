@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "K'BIO Group",
-    template: "%s | K'BIO Group",
+    default: "K'BIO",
+    template: "%s | K'BIO",
   },
   description: "Ingenierie biomedicale, architecture hospitaliere, GMAO et projets de sante.",
 };

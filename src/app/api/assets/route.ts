@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireSession } from "@/lib/api-auth";
+import { requireSession, requireWritableSession } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 
 const createBody = z.object({
@@ -28,7 +28,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const auth = await requireSession();
+  const auth = await requireWritableSession();
   if (!auth.ok) return auth.response;
 
   let json: unknown;

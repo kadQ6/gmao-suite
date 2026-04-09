@@ -4,8 +4,12 @@ import { getToken } from "next-auth/jwt";
 
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+  const protectedScopes = ["/portal", "/dashboard", "/projects", "/equipment", "/actions", "/settings", "/admin"];
+  const isProtected = protectedScopes.some(
+    (scope) => pathname === scope || pathname.startsWith(`${scope}/`)
+  );
 
-  if (!pathname.startsWith("/portal")) {
+  if (!isProtected) {
     return NextResponse.next();
   }
 
@@ -20,5 +24,20 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/portal", "/portal/:path*"],
+  matcher: [
+    "/portal",
+    "/portal/:path*",
+    "/dashboard",
+    "/dashboard/:path*",
+    "/projects",
+    "/projects/:path*",
+    "/equipment",
+    "/equipment/:path*",
+    "/actions",
+    "/actions/:path*",
+    "/settings",
+    "/settings/:path*",
+    "/admin",
+    "/admin/:path*",
+  ],
 };
