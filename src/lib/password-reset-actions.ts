@@ -14,7 +14,11 @@ function sha256(value: string) {
 
 export async function requestPasswordResetFromForm(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const projectCode = String(formData.get("projectCode") ?? "").trim().toUpperCase();
   if (!email) {
+    redirect("/forgot-password?status=ok");
+  }
+  if (!projectCode) {
     redirect("/forgot-password?status=ok");
   }
 
@@ -23,7 +27,17 @@ export async function requestPasswordResetFromForm(formData: FormData) {
     select: { id: true, email: true, name: true, active: true, password: true },
   });
 
-  if (user?.active && user.password) {
+  const linkedProject = user
+    ? await prisma.projectClient.findFirst({
+        where: {
+          project: { code: projectCode },
+          client: { users: { some: { userId: user.id } } },
+        },
+        select: { project: { select: { code: true, name: true } } },
+      })
+    : null;
+
+  if (user?.active && user.password && linkedProject) {
     const rawToken = randomBytes(32).toString("hex");
     const tokenHash = sha256(rawToken);
     const expiresAt = new Date(Date.now() + TOKEN_TTL_MINUTES * 60 * 1000);
@@ -40,8 +54,17 @@ export async function requestPasswordResetFromForm(formData: FormData) {
     await sendEmail({
       to: user.email,
       subject: "Reinitialisation de votre mot de passe K'BIO",
-      text: `Bonjour ${user.name},\n\nCliquez sur ce lien pour reinitialiser votre mot de passe:\n${resetLink}\n\nCe lien expire dans ${TOKEN_TTL_MINUTES} minutes.`,
-      html: `<p>Bonjour ${user.name},</p><p>Cliquez sur ce lien pour reinitialiser votre mot de passe:</p><p><a href="${resetLink}">${resetLink}</a></p><p>Ce lien expire dans ${TOKEN_TTL_MINUTES} minutes.</p>`,
+      text:
+        `Bonjour ${user.name},\n\n` +
+        `Projet confirme: ${linkedProject.project.code} - ${linkedProject.project.name}\n` +
+        `Cliquez sur ce lien pour reinitialiser votre mot de passe:\n${resetLink}\n\n` +
+        `Ce lien expire dans ${TOKEN_TTL_MINUTES} minutes.`,
+      html:
+        `<p>Bonjour ${user.name},</p>` +
+        `<p>Projet confirme: <strong>${linkedProject.project.code}</strong> - ${linkedProject.project.name}</p>` +
+        `<p>Cliquez sur ce lien pour reinitialiser votre mot de passe:</p>` +
+        `<p><a href="${resetLink}">${resetLink}</a></p>` +
+        `<p>Ce lien expire dans ${TOKEN_TTL_MINUTES} minutes.</p>`,
     });
   }
 

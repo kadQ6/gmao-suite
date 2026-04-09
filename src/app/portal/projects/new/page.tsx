@@ -21,7 +21,7 @@ export default async function NewProjectPage({ searchParams }: Props) {
             : sp.err === "client-name-required"
               ? "Le nom du client est obligatoire pour creer le client projet."
             : sp.err === "client-contact-email-used"
-              ? "Cet email existe deja. Utilisez un email client unique (nouveau responsable client)."
+              ? "Cet email appartient a un compte interne. Utilisez un email client ou un compte client existant."
         : null;
 
   return (

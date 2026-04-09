@@ -11,7 +11,7 @@ export default async function ForgotPasswordPage({ searchParams }: Props) {
     <section className="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
       <h1 className="text-xl font-semibold text-kbio-navy">Mot de passe oublie</h1>
       <p className="mt-2 text-sm text-slate-600">
-        Saisissez votre email. Si un compte existe, un lien de reinitialisation sera envoye.
+        Saisissez votre email et votre code projet. Si les informations sont valides, un lien sera envoye.
       </p>
 
       {status === "ok" ? (
@@ -34,6 +34,17 @@ export default async function ForgotPasswordPage({ searchParams }: Props) {
             required
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
             autoComplete="email"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-sm font-medium text-slate-700">Code projet</label>
+          <input
+            name="projectCode"
+            type="text"
+            required
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm uppercase"
+            autoComplete="off"
+            placeholder="Ex. PRJ-042"
           />
         </div>
         <button

@@ -86,32 +86,32 @@ export async function createProjectFromForm(formData: FormData) {
         update: {},
         create: { projectId: createdProjectId, clientId: client.id },
       });
-      const temporaryPassword = generateTemporaryPassword();
-      const temporaryHash = await bcrypt.hash(temporaryPassword, 10);
       const existingUser = await prisma.user.findUnique({
         where: { email: clientContactEmail },
-        select: { id: true, role: true },
+        select: { id: true, role: true, name: true },
       });
-      if (existingUser) {
+      if (existingUser && existingUser.role !== Role.CLIENT) {
         redirect("/portal/projects/new?err=client-contact-email-used");
       }
-      const clientUser = await prisma.user.upsert({
-        where: { email: clientContactEmail },
-        update: {
-          name: clientContactName,
-          role: Role.CLIENT,
-          password: temporaryHash,
-          active: true,
-        },
-        create: {
-          email: clientContactEmail,
-          name: clientContactName,
-          role: Role.CLIENT,
-          password: temporaryHash,
-          active: true,
-        },
-        select: { id: true, email: true, name: true },
-      });
+      const isNewClientUser = !existingUser;
+      const temporaryPassword = isNewClientUser ? generateTemporaryPassword() : null;
+      const temporaryHash = temporaryPassword ? await bcrypt.hash(temporaryPassword, 10) : null;
+      const clientUser = existingUser
+        ? await prisma.user.update({
+            where: { id: existingUser.id },
+            data: { active: true },
+            select: { id: true, email: true, name: true },
+          })
+        : await prisma.user.create({
+            data: {
+              email: clientContactEmail,
+              name: clientContactName,
+              role: Role.CLIENT,
+              password: temporaryHash,
+              active: true,
+            },
+            select: { id: true, email: true, name: true },
+          });
       await prisma.clientUser.upsert({
         where: { clientId_userId: { clientId: client.id, userId: clientUser.id } },
         update: {},
@@ -131,13 +131,14 @@ export async function createProjectFromForm(formData: FormData) {
         text:
           `Bonjour ${clientContactName},\n\n` +
           `Votre acces au portail K'BIO est actif.\n\n` +
+          `Projet: ${code} - ${name}\n` +
           `Email: ${clientContactEmail}\n` +
-          `Mot de passe temporaire: ${temporaryPassword}\n` +
+          `${temporaryPassword ? `Mot de passe temporaire: ${temporaryPassword}\n` : ""}` +
           `Code d'acces client: ${generatedCode}\n` +
           `${phoneLine}\n` +
           `Connexion: ${loginUrl}\n` +
           `Mot de passe oublie: ${forgotUrl}\n\n` +
-          `Pour securite, changez votre mot de passe apres la premiere connexion.`,
+          `Pour reinitialiser un mot de passe perdu, vous devrez fournir l'email et le code projet (${code}).`,
       });
     }
   } catch {
@@ -308,12 +309,10 @@ export async function deleteProjectFromForm(formData: FormData) {
   const projectId = String(formData.get("projectId") ?? "").trim();
   if (!projectId) redirect("/portal/projects");
 
-  await prisma.project.updateMany({
-    where: { id: projectId },
-    data: {
-      status: ProjectStatus.CANCELLED,
-      archivedAt: new Date(),
-    },
+  await prisma.$transaction(async (tx) => {
+    await tx.workOrder.deleteMany({ where: { projectId } });
+    await tx.asset.deleteMany({ where: { projectId } });
+    await tx.project.delete({ where: { id: projectId } });
   });
 
   revalidatePath("/portal");
