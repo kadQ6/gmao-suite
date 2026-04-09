@@ -6,5 +6,5 @@ type Props = {
 
 export default async function ProjectRootPage({ params }: Props) {
   const { id } = await params;
-  redirect(`/projects/${id}/overview`);
+  redirect(`/portal/projects/${id}`);
 }

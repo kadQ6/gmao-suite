@@ -1,10 +1,5 @@
-import { PlatformPage } from "@/components/platform/platform-shell";
+import { redirect } from "next/navigation";
 
 export default function SettingsPage() {
-  return (
-    <PlatformPage
-      title="Settings"
-      description="Initial scaffold for profile, access preferences, and security controls."
-    />
-  );
+  redirect("/portal/admin");
 }

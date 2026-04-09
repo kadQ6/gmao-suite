@@ -1,10 +1,5 @@
-import { PlatformPage } from "@/components/platform/platform-shell";
+import { redirect } from "next/navigation";
 
 export default function ActionsPage() {
-  return (
-    <PlatformPage
-      title="Project Tracking"
-      description="Initial scaffold for action plans, milestones, timelines, and client-visible progress."
-    />
-  );
+  redirect("/portal/projects");
 }
