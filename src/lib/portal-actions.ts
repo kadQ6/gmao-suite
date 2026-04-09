@@ -37,7 +37,7 @@ function generateTemporaryPassword() {
 
 export async function createProjectFromForm(formData: FormData) {
   const ownerId = await requireWritableUserId();
-  const code = String(formData.get("code") ?? "").trim();
+  const code = String(formData.get("code") ?? "").trim().toUpperCase();
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim() || null;
   const clientName = String(formData.get("clientName") ?? "").trim();
@@ -46,6 +46,13 @@ export async function createProjectFromForm(formData: FormData) {
   const clientContactPhone = String(formData.get("clientContactPhone") ?? "").trim();
   if (!code || !name) {
     redirect("/portal/projects/new?err=required");
+  }
+  const existingProject = await prisma.project.findFirst({
+    where: { code, archivedAt: null },
+    select: { id: true },
+  });
+  if (existingProject) {
+    redirect("/portal/projects/new?err=project-code-used");
   }
   const wantsClient = Boolean(clientName || clientContactName || clientContactEmail || clientContactPhone);
   if (wantsClient && !clientName) {

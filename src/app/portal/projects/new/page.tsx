@@ -16,6 +16,8 @@ export default async function NewProjectPage({ searchParams }: Props) {
       ? "Code et nom sont obligatoires."
       : sp.err === "duplicate"
         ? "Ce code projet est deja utilise."
+        : sp.err === "project-code-used"
+          ? "Ce code projet est deja utilise sur un projet existant."
         : sp.err === "client-contact-required"
             ? "Le nom et l'email du responsable client sont obligatoires."
             : sp.err === "client-name-required"
