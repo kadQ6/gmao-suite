@@ -6,3 +6,6 @@ export const GMAO_IMPORT_MAX_DATA_ROWS = 5000;
 
 /** Extensions acceptées (normalisées en minuscules). */
 export const GMAO_IMPORT_ALLOWED_EXT = new Set([".xlsx", ".xlsm"]);
+
+/** Catégorie équipement si aucune colonne / cellule exploitable (champ Prisma obligatoire). */
+export const GMAO_IMPORT_DEFAULT_CATEGORY = "Non classé";

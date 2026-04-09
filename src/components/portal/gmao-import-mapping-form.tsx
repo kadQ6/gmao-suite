@@ -48,10 +48,9 @@ export function GmaoImportMappingForm({
       <input type="hidden" name="dedupeStrategy" value={dedupe} />
 
       <p className="text-sm text-slate-600">
-        Les champs marques * sont obligatoires (comme en import CSV : <code className="rounded bg-slate-100 px-1 text-xs">code</code>,{" "}
-        <code className="rounded bg-slate-100 px-1 text-xs">name</code>,{" "}
-        <code className="rounded bg-slate-100 px-1 text-xs">category</code>). Si une colonne n&apos;a pas ete detectee
-        automatiquement, choisissez le bon champ dans la liste.
+        Seuls <code className="rounded bg-slate-100 px-1 text-xs">code</code> et{" "}
+        <code className="rounded bg-slate-100 px-1 text-xs">libelle</code> sont obligatoires (*). Sans colonne categorie,
+        les equipements sont enregistres en <strong>Non classé</strong>. Choisissez le champ dans la liste si besoin.
       </p>
 
       <div className="overflow-x-auto rounded-lg border border-slate-200">

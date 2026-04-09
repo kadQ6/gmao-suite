@@ -25,8 +25,8 @@ const EQUIPMENT_FIELDS: GmaoTargetField[] = [
   { key: "name", label: "Libellé / désignation", required: true, synonyms: ["name", "nom", "designation", "libelle"] },
   {
     key: "category",
-    label: "Catégorie",
-    required: true,
+    label: "Catégorie (optionnel — défaut « Non classé »)",
+    required: false,
     synonyms: [
       "category",
       "categorie",

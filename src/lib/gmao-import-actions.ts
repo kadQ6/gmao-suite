@@ -14,6 +14,7 @@ import {
 import { suggestMapping, validateMappingCompleteness } from "@/lib/gmao-import/field-registry";
 import {
   buildAssetUpsertArgs,
+  equipmentNormalizedJsonForStorage,
   parseEquipmentRow,
 } from "@/lib/gmao-import/equipment-import";
 import { mapExcelRowToNormalized } from "@/lib/gmao-import/map-row";
@@ -228,7 +229,7 @@ export async function gmaoImportRunValidateAction(formData: FormData) {
           batchId,
           rowIndex,
           rawJson: rawForDb,
-          normalizedJson: asJsonInput(parsed.data),
+          normalizedJson: asJsonInput(equipmentNormalizedJsonForStorage(parsed.data, parsed.categorySupplied)),
           status: GmaoImportRowStatus.ERROR,
           errorCode: "DUPLICATE_IN_FILE",
           errorMessage: `Doublon du code ${code} (premiere ligne ${firstLine}).`,
@@ -243,7 +244,7 @@ export async function gmaoImportRunValidateAction(formData: FormData) {
         batchId,
         rowIndex,
         rawJson: rawForDb,
-        normalizedJson: asJsonInput(parsed.data),
+        normalizedJson: asJsonInput(equipmentNormalizedJsonForStorage(parsed.data, parsed.categorySupplied)),
         status: GmaoImportRowStatus.VALID,
       },
     });
@@ -329,7 +330,9 @@ export async function gmaoImportCommitAction(formData: FormData) {
       select: { id: true },
     });
 
-    const plan = buildAssetUpsertArgs(parsed.data, projectId, batch.mode, existing);
+    const plan = buildAssetUpsertArgs(parsed.data, projectId, batch.mode, existing, {
+      categorySupplied: parsed.categorySupplied,
+    });
     if (plan.skip) {
       skipped += 1;
       await prisma.gmaoImportRow.update({
