@@ -1,4 +1,5 @@
 import { PortalPrimaryLink } from "@/components/portal/portal-primary-link";
+import { deleteAssetFromForm } from "@/lib/portal-actions";
 import { getPortalContext } from "@/lib/portal-scope";
 import { prisma } from "@/lib/prisma";
 
@@ -37,6 +38,12 @@ export default async function ProjectAssetsPage({ params }: Props) {
           <p className="mt-1 text-sm text-slate-600">
             Liste des equipements rattaches a ce projet uniquement.
           </p>
+          <a
+            className="mt-2 inline-block text-sm font-medium text-kbio-teal hover:underline"
+            href={`/api/exports/assets?projectId=${encodeURIComponent(projectId)}`}
+          >
+            Exporter Excel (.csv)
+          </a>
         </div>
         {ctx.canWrite ? (
           <PortalPrimaryLink href={`/portal/assets/new?projectId=${encodeURIComponent(projectId)}`}>
@@ -58,6 +65,7 @@ export default async function ProjectAssetsPage({ params }: Props) {
                 <th className="px-4 py-3">Categorie</th>
                 <th className="px-4 py-3">Localisation</th>
                 <th className="px-4 py-3">OT</th>
+                {ctx.canWrite ? <th className="px-4 py-3 text-right">Action</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -68,6 +76,17 @@ export default async function ProjectAssetsPage({ params }: Props) {
                   <td className="px-4 py-3">{asset.category}</td>
                   <td className="px-4 py-3">{asset.location ?? "-"}</td>
                   <td className="px-4 py-3">{asset._count.workOrders}</td>
+                  {ctx.canWrite ? (
+                    <td className="px-4 py-3 text-right">
+                      <form action={deleteAssetFromForm}>
+                        <input type="hidden" name="assetId" value={asset.id} />
+                        <input type="hidden" name="returnTo" value={`/portal/projects/${projectId}/assets`} />
+                        <button type="submit" className="text-sm font-medium text-red-700 hover:underline">
+                          Supprimer
+                        </button>
+                      </form>
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>

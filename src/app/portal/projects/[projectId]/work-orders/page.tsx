@@ -41,6 +41,12 @@ export default async function ProjectWorkOrdersPage({ params }: Props) {
           <p className="mt-1 text-sm text-slate-600">
             Liste des ordres de travail rattaches a ce projet uniquement.
           </p>
+          <a
+            className="mt-2 inline-block text-sm font-medium text-kbio-teal hover:underline"
+            href={`/api/exports/work-orders?projectId=${encodeURIComponent(projectId)}`}
+          >
+            Exporter Excel (.csv)
+          </a>
         </div>
         {ctx.canWrite ? (
           <PortalPrimaryLink

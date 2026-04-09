@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PortalPrimaryLink } from "@/components/portal/portal-primary-link";
+import { cancelProjectFromForm } from "@/lib/portal-actions";
 import { getPortalContext, getProjectScopeWhere } from "@/lib/portal-scope";
 import { prisma } from "@/lib/prisma";
 
@@ -37,6 +38,9 @@ export default async function ProjectsPage() {
           <p className="mt-1 text-sm text-slate-600">
             Selectionnez un projet pour acceder au suivi des taches et au pilotage.
           </p>
+          <a className="mt-2 inline-block text-sm font-medium text-kbio-teal hover:underline" href="/api/exports/projects">
+            Exporter Excel (.csv)
+          </a>
         </div>
         {ctx.canWrite ? <PortalPrimaryLink href="/portal/projects/new">Nouveau projet</PortalPrimaryLink> : null}
       </div>
@@ -59,12 +63,26 @@ export default async function ProjectsPage() {
                 <td className="px-4 py-3">{project.owner.name}</td>
                 <td className="px-4 py-3">{project._count.tasks}</td>
                 <td className="px-4 py-3 text-right">
-                  <Link
-                    href={`/portal/projects/${project.id}`}
-                    className="font-medium text-kbio-teal hover:underline"
-                  >
-                    Ouvrir
-                  </Link>
+                  <div className="inline-flex items-center gap-3">
+                    <Link
+                      href={`/portal/projects/${project.id}`}
+                      className="font-medium text-kbio-teal hover:underline"
+                    >
+                      Ouvrir
+                    </Link>
+                    {ctx.canWrite ? (
+                      <form action={cancelProjectFromForm}>
+                        <input type="hidden" name="projectId" value={project.id} />
+                        <button
+                          type="submit"
+                          className="text-sm font-medium text-amber-700 hover:underline"
+                          title="Annuler ce projet"
+                        >
+                          Annuler
+                        </button>
+                      </form>
+                    ) : null}
+                  </div>
                 </td>
               </tr>
             ))}

@@ -36,7 +36,12 @@ export default async function WorkOrdersPage() {
   return (
     <section className="space-y-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <h2 className="text-xl font-semibold">Ordres de travail</h2>
+        <div>
+          <h2 className="text-xl font-semibold">Ordres de travail</h2>
+          <a className="mt-2 inline-block text-sm font-medium text-kbio-teal hover:underline" href="/api/exports/work-orders">
+            Exporter Excel (.csv)
+          </a>
+        </div>
         {ctx.canWrite ? <PortalPrimaryLink href="/portal/work-orders/new">Nouvel ordre de travail</PortalPrimaryLink> : null}
       </div>
       <div className="grid gap-3">

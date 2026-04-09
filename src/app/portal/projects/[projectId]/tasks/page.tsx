@@ -1,4 +1,5 @@
 import { PortalPrimaryLink } from "@/components/portal/portal-primary-link";
+import { deleteTaskFromForm } from "@/lib/portal-actions";
 import { getPortalContext } from "@/lib/portal-scope";
 import { prisma } from "@/lib/prisma";
 
@@ -33,6 +34,12 @@ export default async function ProjectTasksPage({ params }: Props) {
         <div>
           <h2 className="text-lg font-semibold text-slate-900">Taches du projet</h2>
           <p className="mt-1 text-sm text-slate-600">Liste des taches rattachees a ce projet uniquement.</p>
+          <a
+            className="mt-2 inline-block text-sm font-medium text-kbio-teal hover:underline"
+            href={`/api/exports/tasks?projectId=${encodeURIComponent(projectId)}`}
+          >
+            Exporter Excel (.csv)
+          </a>
         </div>
         {ctx.canWrite ? (
           <PortalPrimaryLink href={`/portal/projects/${projectId}/tasks/new`}>
@@ -59,6 +66,15 @@ export default async function ProjectTasksPage({ params }: Props) {
               <p className="mt-2 text-sm text-slate-600">
                 Assigne a : {task.assignee?.name ?? "Non assigne"}
               </p>
+              {ctx.canWrite ? (
+                <form action={deleteTaskFromForm} className="mt-3">
+                  <input type="hidden" name="taskId" value={task.id} />
+                  <input type="hidden" name="projectId" value={projectId} />
+                  <button type="submit" className="text-sm font-medium text-red-700 hover:underline">
+                    Supprimer
+                  </button>
+                </form>
+              ) : null}
             </article>
           ))
         )}

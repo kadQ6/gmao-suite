@@ -1,12 +1,13 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { TaskStatus, WorkOrderStatus, WorkOrderType } from "@prisma/client";
+import { ProjectStatus, TaskStatus, WorkOrderStatus, WorkOrderType } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { canWriteData } from "@/lib/rbac";
 
 async function requireUserId() {
   const session = await getServerSession(authOptions);
@@ -16,8 +17,19 @@ async function requireUserId() {
   return session.user.id;
 }
 
+async function requireWritableUserId() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    redirect("/login?callbackUrl=/portal");
+  }
+  if (!canWriteData(session.user.role)) {
+    redirect("/portal");
+  }
+  return session.user.id;
+}
+
 export async function createProjectFromForm(formData: FormData) {
-  const ownerId = await requireUserId();
+  const ownerId = await requireWritableUserId();
   const code = String(formData.get("code") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim() || null;
@@ -42,7 +54,7 @@ export async function createProjectFromForm(formData: FormData) {
 }
 
 export async function createAssetFromForm(formData: FormData) {
-  await requireUserId();
+  await requireWritableUserId();
   const code = String(formData.get("code") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
   const category = String(formData.get("category") ?? "").trim();
@@ -69,7 +81,7 @@ export async function createAssetFromForm(formData: FormData) {
 }
 
 export async function createTaskFromForm(formData: FormData) {
-  await requireUserId();
+  await requireWritableUserId();
   const projectId = String(formData.get("projectId") ?? "").trim();
   const title = String(formData.get("title") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim() || null;
@@ -109,7 +121,7 @@ export async function createTaskFromForm(formData: FormData) {
 }
 
 export async function createWorkOrderFromForm(formData: FormData) {
-  await requireUserId();
+  await requireWritableUserId();
   const title = String(formData.get("title") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim() || null;
   const typeStr = String(formData.get("type") ?? "CORRECTIVE");
@@ -172,5 +184,46 @@ export async function createWorkOrderFromForm(formData: FormData) {
     revalidatePath(`/portal/projects/${projectId}`);
     revalidatePath(`/portal/projects/${projectId}/work-orders`);
   }
+  redirect(returnTo);
+}
+
+export async function cancelProjectFromForm(formData: FormData) {
+  await requireWritableUserId();
+  const projectId = String(formData.get("projectId") ?? "").trim();
+  if (!projectId) redirect("/portal/projects");
+
+  await prisma.project.update({
+    where: { id: projectId },
+    data: { status: ProjectStatus.CANCELLED },
+  });
+
+  revalidatePath("/portal");
+  revalidatePath("/portal/projects");
+  revalidatePath(`/portal/projects/${projectId}`);
+  redirect("/portal/projects");
+}
+
+export async function deleteTaskFromForm(formData: FormData) {
+  await requireWritableUserId();
+  const taskId = String(formData.get("taskId") ?? "").trim();
+  const projectId = String(formData.get("projectId") ?? "").trim();
+  if (!taskId || !projectId) redirect("/portal/projects");
+
+  await prisma.task.deleteMany({ where: { id: taskId, projectId } });
+  revalidatePath(`/portal/projects/${projectId}`);
+  revalidatePath(`/portal/projects/${projectId}/tasks`);
+  revalidatePath("/portal/projects");
+  redirect(`/portal/projects/${projectId}/tasks`);
+}
+
+export async function deleteAssetFromForm(formData: FormData) {
+  await requireWritableUserId();
+  const assetId = String(formData.get("assetId") ?? "").trim();
+  const returnTo = String(formData.get("returnTo") ?? "").trim() || "/portal/assets";
+  if (!assetId) redirect(returnTo);
+
+  await prisma.asset.deleteMany({ where: { id: assetId } });
+  revalidatePath("/portal/assets");
+  if (returnTo.includes("/portal/projects/")) revalidatePath(returnTo);
   redirect(returnTo);
 }

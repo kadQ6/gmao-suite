@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PortalPrimaryLink } from "@/components/portal/portal-primary-link";
+import { deleteAssetFromForm } from "@/lib/portal-actions";
 import { getAssetScopeWhere, getPortalContext } from "@/lib/portal-scope";
 import { prisma } from "@/lib/prisma";
 
@@ -34,7 +35,12 @@ export default async function AssetsPage() {
   return (
     <section className="space-y-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <h2 className="text-xl font-semibold">Equipements</h2>
+        <div>
+          <h2 className="text-xl font-semibold">Equipements</h2>
+          <a className="mt-2 inline-block text-sm font-medium text-kbio-teal hover:underline" href="/api/exports/assets">
+            Exporter Excel (.csv)
+          </a>
+        </div>
         {ctx.canWrite ? <PortalPrimaryLink href="/portal/assets/new">Nouvel equipement</PortalPrimaryLink> : null}
       </div>
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -47,6 +53,7 @@ export default async function AssetsPage() {
               <th className="px-4 py-3">Localisation</th>
               <th className="px-4 py-3">Projet</th>
               <th className="px-4 py-3">OT</th>
+              {ctx.canWrite ? <th className="px-4 py-3 text-right">Action</th> : null}
             </tr>
           </thead>
           <tbody>
@@ -69,6 +76,17 @@ export default async function AssetsPage() {
                   )}
                 </td>
                 <td className="px-4 py-3">{asset._count.workOrders}</td>
+                {ctx.canWrite ? (
+                  <td className="px-4 py-3 text-right">
+                    <form action={deleteAssetFromForm}>
+                      <input type="hidden" name="assetId" value={asset.id} />
+                      <input type="hidden" name="returnTo" value="/portal/assets" />
+                      <button type="submit" className="text-sm font-medium text-red-700 hover:underline">
+                        Supprimer
+                      </button>
+                    </form>
+                  </td>
+                ) : null}
               </tr>
             ))}
           </tbody>
