@@ -50,17 +50,29 @@ export default async function GmaoBiomedDashboardPage() {
           </p>
           <p className="mt-2 text-xs text-slate-500">
             Exports CSV (compatibles Excel) :{" "}
-            <a className="font-medium text-kbio-teal hover:underline" href="/api/exports/biomed-equipment">
+            <Link
+              prefetch={false}
+              className="font-medium text-kbio-teal hover:underline"
+              href="/api/exports/biomed-equipment"
+            >
               equipements
-            </a>
+            </Link>
             {" · "}
-            <a className="font-medium text-kbio-teal hover:underline" href="/api/exports/biomed-interventions">
+            <Link
+              prefetch={false}
+              className="font-medium text-kbio-teal hover:underline"
+              href="/api/exports/biomed-interventions"
+            >
               demandes d&apos;intervention
-            </a>
+            </Link>
             {" · "}
-            <a className="font-medium text-kbio-teal hover:underline" href="/api/exports/biomed-equipment-template">
+            <Link
+              prefetch={false}
+              className="font-medium text-kbio-teal hover:underline"
+              href="/api/exports/biomed-equipment-template"
+            >
               modele import equipement
-            </a>
+            </Link>
           </p>
         </div>
         <p className="text-sm text-slate-500">

@@ -20,18 +20,20 @@ export default async function BiomedEquipementsPage() {
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <h1 className="text-2xl font-semibold text-kbio-navy">Parc equipements</h1>
         <div className="flex flex-wrap items-center gap-2">
-          <a
+          <Link
+            prefetch={false}
             href="/api/exports/biomed-equipment"
             className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:border-kbio-teal/40 hover:text-kbio-navy"
           >
             Export CSV (Excel)
-          </a>
-          <a
+          </Link>
+          <Link
+            prefetch={false}
             href="/api/exports/biomed-equipment-template"
             className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:border-kbio-teal/40 hover:text-kbio-navy"
           >
             Modele import
-          </a>
+          </Link>
           {canWrite ? (
             <Link
               href="/portal/gmao-biomed/equipements/nouveau"
