@@ -40,14 +40,23 @@ let u = process.env.DATABASE_URL;
 if (!u || typeof u !== 'string') process.exit(1);
 u = u.trim().replace(/^\\uFEFF/, '');
 if (/[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F]/.test(u)) process.exit(1);
-fs.writeFileSync(process.env.BACKUP_TMPFILE, u, 'utf8');
+// Prisma ajoute ?schema=public — libpq / pg_dump n'acceptent pas le parametre schema.
+u = u.replace(/^prisma\\+postgres:\\/\\//, 'postgresql://');
+const url = new URL(u);
+url.searchParams.delete('schema');
+const clean = url.toString();
+fs.writeFileSync(process.env.BACKUP_TMPFILE, clean, 'utf8');
 "
 )
 
 DATABASE_URL="$(tr -d '\r' <"${TMPFILE}" | head -1)"
 
-if [[ -z "${DATABASE_URL}" ]] || [[ "${DATABASE_URL}" != postgresql* ]]; then
+if [[ -z "${DATABASE_URL}" ]]; then
   echo "Could not read a valid DATABASE_URL from ${ENV_FILE}"
+  exit 1
+fi
+if [[ "${DATABASE_URL}" != postgresql* ]] && [[ "${DATABASE_URL}" != postgres* ]]; then
+  echo "DATABASE_URL must be a postgres URI (got unexpected scheme)"
   exit 1
 fi
 
