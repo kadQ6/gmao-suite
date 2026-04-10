@@ -24,7 +24,32 @@ if [[ ! -d "${APP_DIR}/node_modules" ]]; then
   exit 1
 fi
 
-DATABASE_URL="$(cd "${APP_DIR}" && node -e "require('dotenv').config({ path: '.env' }); const u = process.env.DATABASE_URL; if (!u) process.exit(1); console.log(u)")"
+# Ne pas utiliser console.log : certains outils injectent du texte sur stdout (ex. symboles de debug),
+# ce qui casse l'URI passee a pg_dump.
+TMPFILE="$(mktemp)"
+chmod 600 "${TMPFILE}"
+trap 'rm -f "${TMPFILE}"' EXIT
+
+(
+  cd "${APP_DIR}"
+  BACKUP_TMPFILE="${TMPFILE}" node --no-warnings -e "
+const fs = require('fs');
+const path = require('path');
+require('dotenv').config({ path: path.join(process.cwd(), '.env') });
+let u = process.env.DATABASE_URL;
+if (!u || typeof u !== 'string') process.exit(1);
+u = u.trim().replace(/^\\uFEFF/, '');
+if (/[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F]/.test(u)) process.exit(1);
+fs.writeFileSync(process.env.BACKUP_TMPFILE, u, 'utf8');
+"
+)
+
+DATABASE_URL="$(tr -d '\r' <"${TMPFILE}" | head -1)"
+
+if [[ -z "${DATABASE_URL}" ]] || [[ "${DATABASE_URL}" != postgresql* ]]; then
+  echo "Could not read a valid DATABASE_URL from ${ENV_FILE}"
+  exit 1
+fi
 
 mkdir -p "${BACKUP_ROOT}"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
