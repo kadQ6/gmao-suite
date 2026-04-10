@@ -88,3 +88,57 @@ sudo certbot --nginx -d kbio-conseil.com -d www.kbio-conseil.com
 - `https://kbio-conseil.com/api/health` doit repondre `ok: true`
 - Site public: `/`, `/services`, `/contact`
 - Portail (apres login): `/portal`, `/portal/projects`, etc.
+
+## 11) Mise a jour code (git pull + build)
+
+Sur le VPS :
+
+```bash
+cd /var/www/gmao-suite/current
+bash deploy/update-from-git.sh
+```
+
+(`update-from-git.sh` fait `git pull --ff-only` puis `deploy/publish-vps.sh` en root ou via `sudo`.)
+
+## 12) Sauvegardes PostgreSQL
+
+Installer le client si besoin : `sudo apt install -y postgresql-client`
+
+```bash
+cd /var/www/gmao-suite/current
+sudo bash deploy/backup-db.sh
+```
+
+Les fichiers vont sous `/var/backups/gmao-suite/` (gzip), avec suppression des sauvegardes de plus de **14 jours** (variable `RETENTION_DAYS`).
+
+**Cron** (ex. tous les jours a 3h15) :
+
+```bash
+sudo crontab -e
+```
+
+Ligne :
+
+```
+15 3 * * * bash /var/www/gmao-suite/current/deploy/backup-db.sh >>/var/log/gmao-backup.log 2>&1
+```
+
+Pense a **copier les `.sql.gz` hors du VPS** (stockage externe) pour survivre a une panne disque.
+
+## 13) Durcir SSH
+
+Procedure detaillee (cles, tests, puis sshd) : **`deploy/HARDEN_SSH.md`**.
+
+Fichier modele : `deploy/sshd-hardening.conf.example` → copie vers `/etc/ssh/sshd_config.d/` apres verification des cles.
+
+## 14) Pare-feu (rappel)
+
+```bash
+sudo ufw allow OpenSSH
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw enable
+sudo ufw status verbose
+```
+
+Verifier aussi le **firewall** dans hPanel Hostinger (ports 22, 80, 443).

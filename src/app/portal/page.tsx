@@ -143,6 +143,11 @@ export default async function PortalDashboardPage() {
                 Ordres de travail
               </Link>
             </li>
+            <li>
+              <Link className="font-medium text-kbio-teal hover:underline" href="/portal/gmao-biomed">
+                GMAO biomedicale (integree)
+              </Link>
+            </li>
           </ul>
         </div>
       </div>

@@ -43,6 +43,14 @@ enum ProjectStatus {
   CANCELLED
 }
 
+/** Domaine d'intervention (badges type vue galerie portail client) */
+enum ProjectPracticeArea {
+  BIOMEDICAL_ENGINEERING
+  HOSPITAL_ARCHITECTURE
+  PROJECT_MANAGEMENT
+  OTHER
+}
+
 enum ActionStatus {
   TODO
   IN_PROGRESS
@@ -112,6 +120,10 @@ model User {
   passwordResetTokens PasswordResetToken[]
   gmaoImportTemplates GmaoImportTemplate[]
   gmaoImportBatches   GmaoImportBatch[]
+  biomedTechnicianProfiles     BiomedTechnician[]     @relation("BiomedTechnicianUser")
+  biomedEquipmentAsResponsible BiomedEquipment[]      @relation("BiomedEquipmentResponsible")
+  biomedStockMovements         BiomedStockMovement[]
+  biomedDocuments              BiomedDocument[]
 }
 
 model Project {
@@ -130,6 +142,8 @@ model Project {
   site           String?
   type           String?
   budgetEstimate Decimal?          @db.Decimal(14, 2)
+  coverImageUrl  String?
+  practiceArea   ProjectPracticeArea?
   archivedAt     DateTime?
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
@@ -554,3 +568,789 @@ model GmaoImportRow {
   @@unique([batchId, rowIndex])
   @@index([batchId, status])
 }
+
+// --- GMAO biomedical (fusion module, ex-gmao-biomed) ---
+
+enum BiomedSiteKind {
+  HOPITAL
+  CLINIQUE
+  CENTRE_SANTE
+  DISPENSAIRE
+  LABORATOIRE
+  AUTRE
+}
+
+enum BiomedRoomKind {
+  BLOC_OP
+  REANIMATION
+  URGENCES
+  RADIOLOGIE
+  LABORATOIRE_LOCAL
+  CONSULTATION
+  HOSPITALISATION
+  STERILISATION
+  PHARMACIE
+  MAGASIN
+  TECHNIQUE
+  AUTRE_LOCAL
+}
+
+enum BiomedCritLevel {
+  CRITIQUE
+  ELEVE
+  MOYEN
+  FAIBLE
+}
+
+enum BiomedIecClass {
+  IEC_I
+  IEC_IIA
+  IEC_IIB
+  IEC_III
+  NON_MEDICAL
+}
+
+enum BiomedMpPeriodicity {
+  MENSUEL
+  TRIMESTRIEL
+  SEMESTRIEL
+  ANNUEL
+  BIENNAL
+}
+
+enum BiomedEquipmentStatus {
+  EN_SERVICE
+  EN_PANNE
+  EN_MAINTENANCE
+  IMMOBILISE
+  HORS_SERVICE
+  REFORME
+  REMPLACE
+  EN_ATTENTE_PIECE
+  SOUS_GARANTIE
+  EN_STOCK
+  EN_TRANSIT
+}
+
+enum BiomedEquipmentCondition {
+  EXCELLENT
+  BON
+  MOYEN
+  MAUVAIS
+  HORS_SERVICE_COND
+}
+
+enum BiomedInterventionUrgency {
+  CRITIQUE
+  URGENT
+  NORMAL
+  FAIBLE
+}
+
+enum BiomedDiStatus {
+  OUVERTE
+  AFFECTEE
+  EN_COURS
+  EN_ATTENTE_PIECE
+  RESOLUE
+  CLOTUREE
+  ANNULEE
+}
+
+enum BiomedPmStatus {
+  PLANIFIEE
+  EN_COURS
+  REALISEE
+  EN_RETARD
+  ANNULEE
+}
+
+enum BiomedPmResult {
+  CONFORME
+  NON_CONFORME
+  PARTIEL
+  A_REVOIR
+}
+
+enum BiomedMcRootCause {
+  USURE
+  CHOC
+  SURTENSION
+  ERREUR_UTILISATION
+  DEFAUT_FABRICATION
+  DEFAUT_INSTALLATION
+  MANQUE_MAINTENANCE
+  AGE
+  AUTRE
+}
+
+enum BiomedMcFinalStatus {
+  RESOLU
+  PARTIEL
+  NON_RESOLU
+  EN_ATTENTE_PIECE_MC
+  RENVOYE_FABRICANT
+}
+
+enum BiomedCqType {
+  METROLOGIQUE
+  ELECTRIQUE
+  PERFORMANCE
+  SECURITE
+  REGLEMENTAIRE
+  AUTRE_CQ
+}
+
+enum BiomedCqStatus {
+  PLANIFIE
+  REALISE
+  EN_RETARD
+  NON_CONFORME
+}
+
+enum BiomedTechnicianSpecialty {
+  BIOMED
+  ELECTRIQUE
+  MECANIQUE
+  INFORMATIQUE
+  FROID
+  GENERALISTE
+  EXTERNE
+}
+
+enum BiomedTechnicianLevel {
+  NIVEAU1
+  NIVEAU2
+  NIVEAU3
+  INGENIEUR
+  EXPERT
+}
+
+enum BiomedStockMvtType {
+  ENTREE
+  SORTIE
+  INVENTAIRE
+  RETOUR
+  REFORME
+  TRANSFERT
+}
+
+enum BiomedPurchaseType {
+  EQUIPEMENT
+  PIECE_DETACHEE
+  CONSOMMABLE
+  SERVICE
+  KIT_ACHAT
+}
+
+enum BiomedPurchaseStatus {
+  BROUILLON
+  SOUMIS
+  VALIDE
+  COMMANDE
+  RECU
+  ANNULE
+}
+
+enum BiomedImmobilisationDecision {
+  REPARATION
+  REFORME
+  REMPLACEMENT
+  EN_ATTENTE_IMMO
+}
+
+enum BiomedRenewalPriority {
+  URGENT
+  HAUTE
+  NORMALE
+  BASSE
+}
+
+enum BiomedInvestmentPriority {
+  P1
+  P2
+  P3
+  P4
+}
+
+enum BiomedInvestmentBudgetStatus {
+  PROPOSE
+  VALIDE
+  APPROUVE
+  FINANCE
+  REALISE
+  REPORTE
+  ANNULE_INV
+}
+
+enum BiomedInvestmentQuarter {
+  T1
+  T2
+  T3
+  T4
+}
+
+enum BiomedProtocolMaintenanceKind {
+  PREVENTIVE
+  CURATIVE
+  CONTROLE_QUALITE
+  VERIFICATION
+}
+
+enum BiomedDocumentType {
+  PV_MAINTENANCE
+  RAPPORT_INTERVENTION
+  FICHE_TECHNIQUE
+  MANUEL
+  CERTIFICAT
+  CONTRAT
+  FACTURE
+  PHOTO
+  PLAN
+  RAPPORT_CQ
+  AUTRE_DOC
+}
+
+model BiomedSite {
+  id               String         @id @default(cuid())
+  code             String         @unique
+  nom              String
+  typeEtablissement BiomedSiteKind @default(HOPITAL)
+  adresse          String?
+  ville            String?
+  region           String?
+  pays             String         @default("France")
+  codePostal       String?
+  latitude         Decimal?       @db.Decimal(10, 8)
+  longitude        Decimal?       @db.Decimal(11, 8)
+  contactNom       String?
+  contactTel       String?
+  contactEmail     String?
+  telephone        String?
+  actif            Boolean        @default(true)
+  remarques        String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  batiments        BiomedBuilding[]
+  locaux           BiomedRoom[]
+  equipements      BiomedEquipment[]
+  demandes         BiomedInterventionRequest[]
+  mouvementsStock  BiomedStockMovement[]
+  plansInvest      BiomedInvestmentPlan[]
+  piecesDetachees  BiomedSparePart[]
+}
+
+model BiomedBuilding {
+  id         String   @id @default(cuid())
+  code       String
+  nom        String
+  siteId     String
+  remarques  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  site       BiomedSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  locaux     BiomedRoom[]
+
+  @@unique([siteId, code])
+  @@index([siteId])
+}
+
+model BiomedRoom {
+  id               String         @id @default(cuid())
+  code             String
+  nom              String
+  siteId           String
+  batimentId       String?
+  etage            String?
+  service          String?
+  unite            String?
+  typeLocal        BiomedRoomKind @default(AUTRE_LOCAL)
+  niveauCriticite  BiomedCritLevel @default(MOYEN)
+  remarques        String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  site             BiomedSite     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  batiment         BiomedBuilding? @relation(fields: [batimentId], references: [id], onDelete: SetNull)
+  equipements      BiomedEquipment[]
+  demandes         BiomedInterventionRequest[]
+
+  @@unique([siteId, code])
+  @@index([siteId])
+}
+
+model BiomedFamily {
+  id               String          @id @default(cuid())
+  code             String          @unique
+  nom              String
+  parentId         String?
+  classeIEC        BiomedIecClass  @default(IEC_IIA)
+  periodiciteDefaut BiomedMpPeriodicity @default(ANNUEL)
+  dureeVieDefaut   Int             @default(10)
+  description      String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  parent           BiomedFamily?   @relation("BiomedFamilyTree", fields: [parentId], references: [id], onDelete: SetNull)
+  sousFamilles     BiomedFamily[]  @relation("BiomedFamilyTree")
+  equipements      BiomedEquipment[]
+  protocoles       BiomedProtocol[]
+  plansInvest      BiomedInvestmentPlan[]
+}
+
+model BiomedMaintenanceKit {
+  id                     String        @id @default(cuid())
+  code                   String        @unique
+  designation            String
+  typeEquipementConcerne String?
+  marque                 String?
+  modele                 String?
+  frequenceUtilisation   BiomedMpPeriodicity?
+  coutEstime             Decimal?      @db.Decimal(12, 2)
+  actif                  Boolean       @default(true)
+  observations           String?
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+  pieces                 BiomedKitPart[]
+  protocoles             BiomedProtocol[]
+}
+
+model BiomedSparePart {
+  id                   String              @id @default(cuid())
+  reference            String              @unique
+  designation          String
+  categorie            String?
+  marqueCompatible     String?
+  modeleCompatible     String?
+  stockDisponible      Int                 @default(0)
+  stockMinimum         Int                 @default(1)
+  stockMaximum         Int                 @default(10)
+  unite                String              @default("piece")
+  prixUnitaire         Decimal?            @db.Decimal(12, 2)
+  devise               String              @default("EUR")
+  fournisseur          String?
+  referenceFournisseur String?
+  emplacementMagasin   String?
+  siteId               String?
+  delaiApprovisionJours Int?
+  criticiteStock       BiomedCritLevel     @default(MOYEN)
+  datePeremption       DateTime?
+  actif                Boolean             @default(true)
+  observations         String?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  site                 BiomedSite?         @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  kitPieces            BiomedKitPart[]
+  mouvements           BiomedStockMovement[]
+  achats               BiomedPurchaseRequest[]
+
+  @@index([siteId])
+}
+
+model BiomedKitPart {
+  id       String              @id @default(cuid())
+  kitId    String
+  pieceId  String
+  quantite Int                 @default(1)
+  kit      BiomedMaintenanceKit @relation(fields: [kitId], references: [id], onDelete: Cascade)
+  piece    BiomedSparePart      @relation(fields: [pieceId], references: [id], onDelete: Cascade)
+
+  @@unique([kitId, pieceId])
+}
+
+model BiomedProtocol {
+  id                          String                     @id @default(cuid())
+  code                        String                     @unique
+  designation                 String
+  familleId                   String?
+  marqueCompatible            String?
+  modeleCompatible            String?
+  typeMaintenance             BiomedProtocolMaintenanceKind @default(PREVENTIVE)
+  frequence                   BiomedMpPeriodicity        @default(ANNUEL)
+  operationsJson              Json?
+  controleObligatoiresJson    Json?
+  outillageJson               Json?
+  kitMaintenanceId            String?
+  piecesRecommandeesJson      Json?
+  tempsStandardMinutes        Int                        @default(60)
+  niveauTechnicienRequis      BiomedTechnicianLevel      @default(NIVEAU2)
+  consignesSecuriteJson       Json?
+  referencesDocumentairesJson Json?
+  version                     String                     @default("1.0")
+  actif                       Boolean                    @default(true)
+  observations                String?
+  createdAt                   DateTime                   @default(now())
+  updatedAt                   DateTime                   @updatedAt
+  famille                     BiomedFamily?              @relation(fields: [familleId], references: [id], onDelete: SetNull)
+  kitMaintenance              BiomedMaintenanceKit?      @relation(fields: [kitMaintenanceId], references: [id], onDelete: SetNull)
+  equipements                 BiomedEquipment[]
+  maintenancesPreventives     BiomedPreventiveMaintenance[]
+}
+
+model BiomedTechnician {
+  id                 String                   @id @default(cuid())
+  matricule          String?                  @unique
+  nom                String
+  prenom             String
+  specialite         BiomedTechnicianSpecialty @default(BIOMED)
+  niveauQualification BiomedTechnicianLevel   @default(NIVEAU2)
+  habilitations      Json?
+  zoneIntervention   String?
+  employeur          String?
+  telephone          String?
+  email              String?
+  actif              Boolean                  @default(true)
+  userId             String?
+  remarques          String?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  user               User?                    @relation("BiomedTechnicianUser", fields: [userId], references: [id], onDelete: SetNull)
+  demandes           BiomedInterventionRequest[]
+  maintenancesPrev   BiomedPreventiveMaintenance[]
+  maintenancesCur    BiomedCorrectiveMaintenance[]
+  controlesQualite   BiomedQualityControl[]
+}
+
+model BiomedEquipment {
+  id                   String                 @id @default(cuid())
+  numeroGMAO           String                 @unique
+  numeroInventaire     String?                @unique
+  numeroSerie          String?
+  codeBarreQR          String?
+  designation          String
+  familleId            String
+  marque               String?
+  modele               String?
+  fabricant            String?
+  fournisseur          String?
+  distributeur         String?
+  referenceInterne     String?
+  classeIEC            BiomedIecClass         @default(IEC_IIA)
+  criticite            BiomedCritLevel        @default(MOYEN)
+  usageClinique        String?
+  siteId               String
+  localId              String?
+  responsableId        String?
+  dateAchat            DateTime?
+  dateMiseEnService    DateTime?
+  dateFinGarantie      DateTime?
+  dureeVieEstimee      Int                    @default(10)
+  anneeFabrication     Int?
+  coutAchat            Decimal?               @db.Decimal(12, 2)
+  valeurActuelle       Decimal?               @db.Decimal(12, 2)
+  devise               String                 @default("EUR")
+  sousGarantie         Boolean                @default(false)
+  sousContrat          Boolean                @default(false)
+  typeContrat          String?
+  fournisseurContrat   String?
+  dateDebutContrat     DateTime?
+  dateFinContrat       DateTime?
+  statut               BiomedEquipmentStatus  @default(EN_SERVICE)
+  etatGeneral          BiomedEquipmentCondition @default(BON)
+  protocoleId          String?
+  periodiciteMP        BiomedMpPeriodicity    @default(ANNUEL)
+  derniereMPDate       DateTime?
+  prochaineMPDate      DateTime?
+  dernierePanneDate    DateTime?
+  prochainCQDate       DateTime?
+  dernierCQDate        DateTime?
+  nbrePannes           Int                    @default(0)
+  nbreMP               Int                    @default(0)
+  coutMaintenanceCumul Decimal?               @db.Decimal(12, 2) @default(0)
+  tempsArretCumul      Decimal?               @db.Decimal(10, 2) @default(0)
+  photoPath            String?
+  manuelPath           String?
+  observations         String?
+  actif                Boolean                @default(true)
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  site                 BiomedSite             @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  local                BiomedRoom?            @relation(fields: [localId], references: [id], onDelete: SetNull)
+  famille              BiomedFamily           @relation(fields: [familleId], references: [id], onDelete: Restrict)
+  protocole            BiomedProtocol?        @relation(fields: [protocoleId], references: [id], onDelete: SetNull)
+  responsable          User?                  @relation("BiomedEquipmentResponsible", fields: [responsableId], references: [id], onDelete: SetNull)
+  demandes             BiomedInterventionRequest[]
+  maintenancesPrev     BiomedPreventiveMaintenance[]
+  maintenancesCur      BiomedCorrectiveMaintenance[]
+  controlesQualite     BiomedQualityControl[]
+  mouvementsStock      BiomedStockMovement[]
+  achats               BiomedPurchaseRequest[]
+  immobilisations      BiomedAssetFreeze[]
+  documents            BiomedDocument[]
+  investmentPlansForReplacement BiomedInvestmentPlan[] @relation("BiomedInvPlanEquipment")
+
+  @@index([siteId])
+  @@index([statut])
+  @@index([familleId])
+}
+
+model BiomedInterventionRequest {
+  id                   String                   @id @default(cuid())
+  numeroDI             String                   @unique
+  dateCreation         DateTime                 @default(now())
+  demandeurId          String?
+  demandeurNom         String?
+  demandeurService     String?
+  demandeurTel         String?
+  siteId               String
+  localId              String?
+  equipementId         String
+  descriptionPanne     String
+  niveauUrgence        BiomedInterventionUrgency @default(NORMAL)
+  criticiteEquipement  BiomedCritLevel          @default(MOYEN)
+  statut               BiomedDiStatus           @default(OUVERTE)
+  technicienId         String?
+  dateAffectation      DateTime?
+  dateIntervention     DateTime?
+  dateCloture          DateTime?
+  tempsArretHeures     Decimal?                 @db.Decimal(8, 2)
+  cause                String?
+  diagnostic           String?
+  actionRealisee       String?
+  piecesUtiliseesJson  Json?
+  coutTotal            Decimal?                 @db.Decimal(12, 2)
+  coutMainOeuvre       Decimal?                 @db.Decimal(12, 2)
+  coutPieces           Decimal?                 @db.Decimal(12, 2)
+  validationFinale     Boolean                  @default(false)
+  validePar            String?
+  observations         String?
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+  site                 BiomedSite               @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  local                BiomedRoom?              @relation(fields: [localId], references: [id], onDelete: SetNull)
+  equipement           BiomedEquipment          @relation(fields: [equipementId], references: [id], onDelete: Cascade)
+  technicien           BiomedTechnician?        @relation(fields: [technicienId], references: [id], onDelete: SetNull)
+  maintenancesCur      BiomedCorrectiveMaintenance[]
+
+  @@index([statut])
+  @@index([siteId])
+  @@index([equipementId])
+}
+
+model BiomedPreventiveMaintenance {
+  id                    String            @id @default(cuid())
+  numeroMP              String            @unique
+  equipementId          String
+  protocoleId           String?
+  frequence             BiomedMpPeriodicity?
+  datePrevue            DateTime
+  dateRealisee          DateTime?
+  technicienId          String?
+  tempsPasseMinutes     Int?
+  statut                BiomedPmStatus    @default(PLANIFIEE)
+  resultat              BiomedPmResult?
+  anomaliesJson         Json?
+  actionsCorrectivesJson Json?
+  piecesUtiliseesJson   Json?
+  kitUtiliseId          String?
+  prochainPassage       DateTime?
+  numeroPV              String?
+  observations          String?
+  coutTotal             Decimal?          @db.Decimal(12, 2)
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  equipement            BiomedEquipment   @relation(fields: [equipementId], references: [id], onDelete: Cascade)
+  protocole             BiomedProtocol?   @relation(fields: [protocoleId], references: [id], onDelete: SetNull)
+  technicien            BiomedTechnician? @relation(fields: [technicienId], references: [id], onDelete: SetNull)
+
+  @@index([equipementId])
+  @@index([datePrevue])
+  @@index([statut])
+}
+
+model BiomedCorrectiveMaintenance {
+  id               String               @id @default(cuid())
+  numeroMC         String               @unique
+  diId             String?
+  equipementId     String
+  panneConstatee   String?
+  diagnostic       String?
+  causeRacine      BiomedMcRootCause?
+  actionCorrective String?
+  piecesChangeeJson Json?
+  technicienId     String?
+  dateDebut        DateTime?
+  dateFin          DateTime?
+  dureeHeures      Decimal?             @db.Decimal(8, 2)
+  coutTotal        Decimal?             @db.Decimal(12, 2)
+  coutMainOeuvre   Decimal?             @db.Decimal(12, 2)
+  coutPieces       Decimal?             @db.Decimal(12, 2)
+  statutFinal      BiomedMcFinalStatus  @default(RESOLU)
+  equipeReforme    Boolean              @default(false)
+  validation       Boolean              @default(false)
+  validePar        String?
+  observations     String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  demande          BiomedInterventionRequest? @relation(fields: [diId], references: [id], onDelete: SetNull)
+  equipement       BiomedEquipment      @relation(fields: [equipementId], references: [id], onDelete: Cascade)
+  technicien       BiomedTechnician?    @relation(fields: [technicienId], references: [id], onDelete: SetNull)
+
+  @@index([equipementId])
+}
+
+model BiomedQualityControl {
+  id            String          @id @default(cuid())
+  numeroCQ      String          @unique
+  equipementId  String
+  typeControle  BiomedCqType    @default(PERFORMANCE)
+  norme         String?
+  periodicite   BiomedMpPeriodicity @default(ANNUEL)
+  datePrevue    DateTime?
+  dateRealisee  DateTime?
+  technicienId  String?
+  resultat      String?
+  conforme      Boolean?
+  ecartsJson    Json?
+  actionsRequises String?
+  rapportPath   String?
+  statut        BiomedCqStatus  @default(PLANIFIE)
+  observations  String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  equipement    BiomedEquipment @relation(fields: [equipementId], references: [id], onDelete: Cascade)
+  technicien    BiomedTechnician? @relation(fields: [technicienId], references: [id], onDelete: SetNull)
+
+  @@index([equipementId])
+}
+
+model BiomedStockMovement {
+  id             String              @id @default(cuid())
+  numeroMvt      String?             @unique
+  date           DateTime            @default(now())
+  type           BiomedStockMvtType
+  pieceId        String
+  quantite       Int
+  quantiteAvant  Int?
+  quantiteApres  Int?
+  motif          String?
+  equipementId   String?
+  siteId         String?
+  magasin        String?
+  userId         String?
+  numeroOT       String?
+  coutUnitaire   Decimal?            @db.Decimal(12, 2)
+  commentaire    String?
+  createdAt      DateTime            @default(now())
+  piece          BiomedSparePart     @relation(fields: [pieceId], references: [id], onDelete: Cascade)
+  equipement     BiomedEquipment?    @relation(fields: [equipementId], references: [id], onDelete: SetNull)
+  site           BiomedSite?         @relation(fields: [siteId], references: [id], onDelete: SetNull)
+  user           User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([pieceId])
+  @@index([date])
+}
+
+model BiomedPurchaseRequest {
+  id                  String               @id @default(cuid())
+  numeroDA            String               @unique
+  date                DateTime             @default(now()) @db.Date
+  demandeurId         String?
+  typeAchat           BiomedPurchaseType   @default(PIECE_DETACHEE)
+  equipementId        String?
+  pieceId             String?
+  designation         String?
+  quantite            Int                  @default(1)
+  prixEstimatif       Decimal?             @db.Decimal(12, 2)
+  fournisseurPressenti String?
+  justification       String?
+  urgence             Boolean              @default(false)
+  statut              BiomedPurchaseStatus @default(BROUILLON)
+  dateValidation      DateTime?
+  validePar           String?
+  dateCommande        DateTime?            @db.Date
+  numeroCommande      String?
+  dateReception       DateTime?            @db.Date
+  quantiteRecue       Int?
+  montantFinal        Decimal?             @db.Decimal(12, 2)
+  facturePath         String?
+  observations        String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  equipement          BiomedEquipment?     @relation(fields: [equipementId], references: [id], onDelete: SetNull)
+  piece               BiomedSparePart?     @relation(fields: [pieceId], references: [id], onDelete: SetNull)
+
+  @@index([statut])
+}
+
+model BiomedAssetFreeze {
+  id                    String                     @id @default(cuid())
+  numeroImmo            String?                    @unique
+  equipementId          String
+  dateImmobilisation    DateTime
+  cause                 String?
+  dureePrevisionnelle   Int?
+  dateLevee             DateTime?
+  decision              BiomedImmobilisationDecision @default(EN_ATTENTE_IMMO)
+  reforme               Boolean                    @default(false)
+  dateReforme           DateTime?
+  motifReforme          String?
+  remplacementPrevu     Boolean                    @default(false)
+  budgetRemplacement    Decimal?                   @db.Decimal(12, 2)
+  anneeRemplacement     Int?
+  prioriteRenouvellement BiomedRenewalPriority     @default(NORMALE)
+  decisionPar           String?
+  observations          String?
+  createdAt             DateTime                   @default(now())
+  updatedAt             DateTime                   @updatedAt
+  equipement            BiomedEquipment            @relation(fields: [equipementId], references: [id], onDelete: Cascade)
+
+  @@index([equipementId])
+}
+
+model BiomedInvestmentPlan {
+  id                 String                       @id @default(cuid())
+  numeroPDI          String?                      @unique
+  annee              Int
+  siteId             String
+  familleId          String?
+  equipementId       String?
+  designationNouveau String?
+  justification      String?
+  criticite          BiomedCritLevel              @default(MOYEN)
+  vetustePercent     Int?
+  coutRemplacement   Decimal?                     @db.Decimal(14, 2)
+  priorite           BiomedInvestmentPriority     @default(P3)
+  statutBudgetaire   BiomedInvestmentBudgetStatus @default(PROPOSE)
+  financementPrevu   String?
+  trimestrePrevue    BiomedInvestmentQuarter?
+  commentaire        String?
+  createdAt          DateTime                     @default(now())
+  updatedAt          DateTime                     @updatedAt
+  site               BiomedSite                   @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  famille            BiomedFamily?                @relation(fields: [familleId], references: [id], onDelete: SetNull)
+  equipementActuel   BiomedEquipment?             @relation("BiomedInvPlanEquipment", fields: [equipementId], references: [id], onDelete: SetNull)
+
+  @@index([siteId])
+  @@index([annee])
+}
+
+model BiomedDocument {
+  id             String            @id @default(cuid())
+  numeroDoc      String?           @unique
+  typeDocument   BiomedDocumentType @default(AUTRE_DOC)
+  equipementId   String?
+  referenceLiee  String?
+  date           DateTime          @default(now()) @db.Date
+  auteurId       String?
+  auteurNom      String?
+  titre          String?
+  cheminFichier  String?
+  nomOriginal    String?
+  tailleFichier  Int?
+  mimeType       String?
+  version        String            @default("1.0")
+  commentaire    String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  equipement     BiomedEquipment?  @relation(fields: [equipementId], references: [id], onDelete: SetNull)
+  auteur         User?             @relation(fields: [auteurId], references: [id], onDelete: SetNull)
+
+  @@index([equipementId])
+}
+
+model BiomedSequence {
+  id            String @id @default(cuid())
+  entite        String @unique
+  annee         Int?
+  dernierNumero Int    @default(0)
+}
+

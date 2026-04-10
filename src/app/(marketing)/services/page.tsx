@@ -11,7 +11,14 @@ export const metadata: Metadata = {
     "Ingenierie biomedicale, architecture hospitaliere, maintenance, GMAO et assistance a maitrise d'ouvrage pour projets de sante.",
 };
 
-const services = [
+type ServiceBlock = {
+  title: string;
+  color: string;
+  items: string[];
+  cta?: { href: string; label: string };
+};
+
+const services: ServiceBlock[] = [
   {
     title: "Ingenierie biomedicale",
     color: "from-teal-500/10 to-cyan-500/5",
@@ -49,6 +56,10 @@ const services = [
       "Tableaux de bord et indicateurs (MTBF, MTTR, disponibilite)",
       "Suivi temps reel des interventions",
     ],
+    cta: {
+      href: "/portal/gmao-biomed",
+      label: "Acceder au module GMAO biomedicale (portail)",
+    },
   },
   {
     title: "Assistance a maitrise d'ouvrage (AMO)",
@@ -102,6 +113,15 @@ export default function ServicesPage() {
                 </li>
               ))}
             </ul>
+            {block.cta ? (
+              <Link
+                href={block.cta.href}
+                className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-teal-700 hover:underline"
+              >
+                {block.cta.label}
+                <span aria-hidden>→</span>
+              </Link>
+            ) : null}
           </section>
         ))}
       </div>

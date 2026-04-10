@@ -1,0 +1,21 @@
+# Exemple de durcissement SSH (OpenSSH).
+# NE PAS copier tant que tu n'as pas testé une connexion par CLE sur ce serveur.
+#
+# Installation après tests réussis :
+#   sudo cp deploy/sshd-hardening.conf.example /etc/ssh/sshd_config.d/99-gmao-hardening.conf
+#   sudo sshd -t && sudo systemctl reload ssh
+#
+# Si tu te bloques : console Hostinger (KVM) ou recovery pour corriger sshd_config.
+
+# Connexion root uniquement par clé (plus de mot de passe root en SSH)
+PermitRootLogin prohibit-password
+
+# Désactive l’auth par mot de passe (clés uniquement)
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+
+# Options usuelles
+X11Forwarding no
+AllowAgentForwarding no
+# MaxAuthTries 4
+# LoginGraceTime 30

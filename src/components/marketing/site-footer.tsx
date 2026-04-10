@@ -32,6 +32,11 @@ export function SiteFooter() {
               </Link>
             </li>
             <li>
+              <Link href="/portal/gmao-biomed" className="hover:text-teal-700">
+                GMAO biomedicale (portail)
+              </Link>
+            </li>
+            <li>
               <Link href="/references" className="hover:text-kbio-navy">
                 References
               </Link>

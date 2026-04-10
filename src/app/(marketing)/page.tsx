@@ -94,6 +94,12 @@ export default function MarketingHomePage() {
                 Decouvrir les services
               </Link>
               <Link
+                href="/portal/gmao-biomed"
+                className="inline-flex items-center justify-center rounded-full border-2 border-teal-200/90 bg-white/90 px-6 py-3.5 text-sm font-semibold text-teal-800 shadow-sm transition hover:border-teal-400 hover:text-kbio-navy"
+              >
+                GMAO biomedicale
+              </Link>
+              <Link
                 href="/login"
                 className="inline-flex w-full items-center justify-center rounded-full text-sm font-medium text-slate-500 underline-offset-4 hover:text-kbio-navy hover:underline sm:w-auto sm:pl-2"
               >
@@ -263,6 +269,12 @@ export default function MarketingHomePage() {
                 className="inline-flex justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-kbio-navy shadow-lg transition hover:bg-slate-100"
               >
                 References & cas
+              </Link>
+              <Link
+                href="/portal/gmao-biomed"
+                className="inline-flex justify-center rounded-full border border-white/35 bg-white/10 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/20"
+              >
+                Module GMAO biomedicale
               </Link>
               <Link
                 href="/login"

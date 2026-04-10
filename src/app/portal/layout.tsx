@@ -13,6 +13,7 @@ const primaryNav = [
 const maintenanceNav = [
   { href: "/portal/assets", label: "Equipements" },
   { href: "/portal/work-orders", label: "Ordres de travail" },
+  { href: "/portal/gmao-biomed", label: "GMAO biomedicale" },
 ];
 
 const adminNav = [{ href: "/portal/admin", label: "Admin" }];

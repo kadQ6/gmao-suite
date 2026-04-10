@@ -28,11 +28,26 @@ export default function PortalDocsIndexPage() {
         <h1 className="mt-1 text-2xl font-semibold text-kbio-navy">Documentation technique</h1>
         <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-600">
           Espace dedie aux specifications de la future application{" "}
-          <strong className="font-medium text-slate-800">GMAO biomedicale multi-sites</strong>, distinct du suivi
+          <strong className="font-medium text-slate-800">GMAO biomedicale multi-sites</strong>, en complement du suivi
           operationnel (projets, equipements, ordres de travail). Ces documents servent de base a l&apos;equipe de
           developpement et evoluent avec le produit.
         </p>
       </div>
+
+      <Link
+        href="/portal/gmao-biomed"
+        className="block rounded-xl border border-kbio-teal/40 bg-gradient-to-br from-teal-50/80 to-white p-6 shadow-sm transition hover:border-kbio-teal hover:shadow-md"
+      >
+        <span className="inline-block rounded-full bg-kbio-teal/15 px-2.5 py-0.5 text-xs font-medium text-kbio-navy">
+          Application
+        </span>
+        <h2 className="mt-3 text-lg font-semibold text-kbio-navy">GMAO biomedicale (module portail)</h2>
+        <p className="mt-2 text-sm leading-relaxed text-slate-600">
+          Tableau de bord, parc equipements, demandes d&apos;intervention (DI), maintenance preventive / curative,
+          controle qualite, stock et achats — donnees en base Prisma, accessible depuis le menu GMAO du portail.
+        </p>
+        <p className="mt-4 text-sm font-medium text-kbio-teal">Ouvrir le module GMAO biomedicale →</p>
+      </Link>
 
       <div className="grid gap-4 md:grid-cols-2">
         {docs.map((d) => (

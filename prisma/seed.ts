@@ -3,8 +3,31 @@ import {
   ActionStatus,
   AlertLevel,
   AlertStatus,
+  BiomedCqStatus,
+  BiomedCqType,
+  BiomedCritLevel,
+  BiomedDiStatus,
+  BiomedEquipmentCondition,
+  BiomedEquipmentStatus,
+  BiomedIecClass,
+  BiomedImmobilisationDecision,
+  BiomedInterventionUrgency,
+  BiomedInvestmentBudgetStatus,
+  BiomedInvestmentPriority,
+  BiomedMcFinalStatus,
+  BiomedMpPeriodicity,
+  BiomedPmStatus,
+  BiomedProtocolMaintenanceKind,
+  BiomedPurchaseStatus,
+  BiomedPurchaseType,
+  BiomedRoomKind,
+  BiomedSiteKind,
+  BiomedStockMvtType,
+  BiomedTechnicianLevel,
+  BiomedTechnicianSpecialty,
   DocumentCategory,
   PrismaClient,
+  ProjectPracticeArea,
   ProjectStatus,
   Role,
   TaskStatus,
@@ -14,6 +37,10 @@ import {
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
+
+const COVER_BIOMED = "https://images.unsplash.com/photo-1576091160550-2173dba999ef?auto=format&fit=crop&w=900&q=80";
+const COVER_ARCH = "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=900&q=80";
+const COVER_HOSP = "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=900&q=80";
 
 async function main() {
   const adminPasswordPlain = process.env.ADMIN_SEED_PASSWORD || "Admin@12345";
@@ -87,6 +114,11 @@ async function main() {
       country: "Djibouti",
       site: "Hopital Regional",
       type: "Deploiement GMAO",
+      startDate: new Date("2024-01-01T00:00:00.000Z"),
+      endDate: new Date("2026-12-31T00:00:00.000Z"),
+      budgetEstimate: 280_000,
+      coverImageUrl: COVER_BIOMED,
+      practiceArea: ProjectPracticeArea.BIOMEDICAL_ENGINEERING,
     },
     create: {
       code: "PRJ-001",
@@ -99,8 +131,83 @@ async function main() {
       country: "Djibouti",
       site: "Hopital Regional",
       type: "Deploiement GMAO",
+      startDate: new Date("2024-01-01T00:00:00.000Z"),
+      endDate: new Date("2026-12-31T00:00:00.000Z"),
+      budgetEstimate: 280_000,
+      coverImageUrl: COVER_BIOMED,
+      practiceArea: ProjectPracticeArea.BIOMEDICAL_ENGINEERING,
     },
   });
+
+  const projectCimb = await prisma.project.upsert({
+    where: { code: "PRJ-DEMO-CIMB" },
+    update: {
+      coverImageUrl: COVER_ARCH,
+      practiceArea: ProjectPracticeArea.HOSPITAL_ARCHITECTURE,
+      startDate: new Date("2025-07-01T00:00:00.000Z"),
+      budgetEstimate: 100_000,
+    },
+    create: {
+      code: "PRJ-DEMO-CIMB",
+      name: "CIMB",
+      ownerId: admin.id,
+      status: ProjectStatus.ACTIVE,
+      startDate: new Date("2025-07-01T00:00:00.000Z"),
+      budgetEstimate: 100_000,
+      coverImageUrl: COVER_ARCH,
+      practiceArea: ProjectPracticeArea.HOSPITAL_ARCHITECTURE,
+    },
+  });
+
+  const projectTec = await prisma.project.upsert({
+    where: { code: "PRJ-DEMO-TEC" },
+    update: {
+      coverImageUrl: COVER_HOSP,
+      practiceArea: ProjectPracticeArea.BIOMEDICAL_ENGINEERING,
+      startDate: new Date("2025-03-15T00:00:00.000Z"),
+      budgetEstimate: 45_000,
+    },
+    create: {
+      code: "PRJ-DEMO-TEC",
+      name: "TEC INT - CHUD",
+      ownerId: admin.id,
+      status: ProjectStatus.ACTIVE,
+      startDate: new Date("2025-03-15T00:00:00.000Z"),
+      budgetEstimate: 45_000,
+      coverImageUrl: COVER_HOSP,
+      practiceArea: ProjectPracticeArea.BIOMEDICAL_ENGINEERING,
+    },
+  });
+
+  const projectFse = await prisma.project.upsert({
+    where: { code: "PRJ-DEMO-FSE" },
+    update: {
+      coverImageUrl: COVER_BIOMED,
+      practiceArea: ProjectPracticeArea.BIOMEDICAL_ENGINEERING,
+      startDate: new Date("2025-01-01T00:00:00.000Z"),
+      endDate: new Date("2026-06-30T00:00:00.000Z"),
+      budgetEstimate: 132_500,
+    },
+    create: {
+      code: "PRJ-DEMO-FSE",
+      name: "FSE - RWANDA",
+      ownerId: admin.id,
+      status: ProjectStatus.ACTIVE,
+      startDate: new Date("2025-01-01T00:00:00.000Z"),
+      endDate: new Date("2026-06-30T00:00:00.000Z"),
+      budgetEstimate: 132_500,
+      coverImageUrl: COVER_BIOMED,
+      practiceArea: ProjectPracticeArea.BIOMEDICAL_ENGINEERING,
+    },
+  });
+
+  for (const pid of [projectCimb.id, projectTec.id, projectFse.id]) {
+    await prisma.projectClient.upsert({
+      where: { projectId_clientId: { projectId: pid, clientId: client.id } },
+      update: {},
+      create: { projectId: pid, clientId: client.id },
+    });
+  }
 
   await prisma.projectClient.upsert({
     where: {
@@ -312,6 +419,293 @@ async function main() {
       action: "CREATE",
       metadata: { source: "seed", visibility: "client" },
       ipAddress: "127.0.0.1",
+    },
+  });
+
+  const biomedSite = await prisma.biomedSite.upsert({
+    where: { code: "CHU-DEMO" },
+    update: {},
+    create: {
+      code: "CHU-DEMO",
+      nom: "CHU Demonstration biomedical",
+      typeEtablissement: BiomedSiteKind.HOPITAL,
+      ville: "Paris",
+      pays: "France",
+    },
+  });
+
+  const biomedBat = await prisma.biomedBuilding.upsert({
+    where: { siteId_code: { siteId: biomedSite.id, code: "BAT-A" } },
+    update: {},
+    create: {
+      siteId: biomedSite.id,
+      code: "BAT-A",
+      nom: "Batiment principal",
+    },
+  });
+
+  const biomedLocal = await prisma.biomedRoom.upsert({
+    where: { siteId_code: { siteId: biomedSite.id, code: "BLOC-1" } },
+    update: {},
+    create: {
+      siteId: biomedSite.id,
+      batimentId: biomedBat.id,
+      code: "BLOC-1",
+      nom: "Bloc technique",
+      typeLocal: BiomedRoomKind.TECHNIQUE,
+    },
+  });
+
+  const biomedFam = await prisma.biomedFamily.upsert({
+    where: { code: "FAM-IMA" },
+    update: {},
+    create: {
+      code: "FAM-IMA",
+      nom: "Imagerie medicale",
+      classeIEC: BiomedIecClass.IEC_IIB,
+      periodiciteDefaut: BiomedMpPeriodicity.ANNUEL,
+    },
+  });
+
+  const biomedKit = await prisma.biomedMaintenanceKit.upsert({
+    where: { code: "KIT-RM-STD" },
+    update: {},
+    create: {
+      code: "KIT-RM-STD",
+      designation: "Kit maintenance IRM standard",
+      marque: "Generique",
+      frequenceUtilisation: BiomedMpPeriodicity.ANNUEL,
+    },
+  });
+
+  const biomedPiece = await prisma.biomedSparePart.upsert({
+    where: { reference: "FILTRE-HEPA-01" },
+    update: { siteId: biomedSite.id },
+    create: {
+      reference: "FILTRE-HEPA-01",
+      designation: "Filtre HEPA compatible bloc IRM",
+      stockDisponible: 3,
+      stockMinimum: 3,
+      siteId: biomedSite.id,
+      criticiteStock: BiomedCritLevel.ELEVE,
+    },
+  });
+
+  await prisma.biomedKitPart.upsert({
+    where: { kitId_pieceId: { kitId: biomedKit.id, pieceId: biomedPiece.id } },
+    update: {},
+    create: { kitId: biomedKit.id, pieceId: biomedPiece.id, quantite: 1 },
+  });
+
+  await prisma.biomedSparePart.upsert({
+    where: { reference: "SONDE-US-9M" },
+    update: {},
+    create: {
+      reference: "SONDE-US-9M",
+      designation: "Sonde echographe 9 MHz",
+      stockDisponible: 0,
+      stockMinimum: 2,
+      siteId: biomedSite.id,
+      criticiteStock: BiomedCritLevel.CRITIQUE,
+    },
+  });
+
+  const biomedProto = await prisma.biomedProtocol.upsert({
+    where: { code: "PROTO-RM-AN" },
+    update: {},
+    create: {
+      code: "PROTO-RM-AN",
+      designation: "Maintenance annuelle IRM",
+      familleId: biomedFam.id,
+      typeMaintenance: BiomedProtocolMaintenanceKind.PREVENTIVE,
+      frequence: BiomedMpPeriodicity.ANNUEL,
+      kitMaintenanceId: biomedKit.id,
+      niveauTechnicienRequis: BiomedTechnicianLevel.NIVEAU2,
+    },
+  });
+
+  const biomedTech = await prisma.biomedTechnician.upsert({
+    where: { matricule: "TECH-BIO-01" },
+    update: { userId: technician.id },
+    create: {
+      matricule: "TECH-BIO-01",
+      nom: "Dupont",
+      prenom: "Marie",
+      specialite: BiomedTechnicianSpecialty.BIOMED,
+      niveauQualification: BiomedTechnicianLevel.NIVEAU3,
+      email: "tech@kbio-conseil.com",
+      userId: technician.id,
+    },
+  });
+
+  const biomedEq = await prisma.biomedEquipment.upsert({
+    where: { numeroGMAO: "GMAO-DEMO-IRM-01" },
+    update: {},
+    create: {
+      numeroGMAO: "GMAO-DEMO-IRM-01",
+      numeroInventaire: "INV-IRM-9001",
+      designation: "IRM 1,5T — salle A",
+      familleId: biomedFam.id,
+      siteId: biomedSite.id,
+      localId: biomedLocal.id,
+      marque: "Siemens",
+      modele: "Magnetom Aera",
+      classeIEC: BiomedIecClass.IEC_IIB,
+      criticite: BiomedCritLevel.CRITIQUE,
+      statut: BiomedEquipmentStatus.EN_SERVICE,
+      etatGeneral: BiomedEquipmentCondition.BON,
+      protocoleId: biomedProto.id,
+      periodiciteMP: BiomedMpPeriodicity.ANNUEL,
+      responsableId: admin.id,
+      observations: "Equipement seed module biomedical integre.",
+    },
+  });
+
+  await prisma.biomedEquipment.upsert({
+    where: { numeroGMAO: "GMAO-DEMO-US-02" },
+    update: {},
+    create: {
+      numeroGMAO: "GMAO-DEMO-US-02",
+      designation: "Echographe portable",
+      familleId: biomedFam.id,
+      siteId: biomedSite.id,
+      classeIEC: BiomedIecClass.IEC_IIA,
+      criticite: BiomedCritLevel.MOYEN,
+      statut: BiomedEquipmentStatus.EN_PANNE,
+      etatGeneral: BiomedEquipmentCondition.MOYEN,
+      periodiciteMP: BiomedMpPeriodicity.TRIMESTRIEL,
+    },
+  });
+
+  await prisma.biomedInterventionRequest.upsert({
+    where: { numeroDI: "DI-DEMO-0001" },
+    update: {},
+    create: {
+      numeroDI: "DI-DEMO-0001",
+      siteId: biomedSite.id,
+      localId: biomedLocal.id,
+      equipementId: biomedEq.id,
+      descriptionPanne: "Erreur gradient — arret spontane sequence",
+      niveauUrgence: BiomedInterventionUrgency.URGENT,
+      criticiteEquipement: BiomedCritLevel.CRITIQUE,
+      statut: BiomedDiStatus.OUVERTE,
+      demandeurNom: "Service imagerie",
+    },
+  });
+
+  const mpDate = new Date();
+  mpDate.setDate(mpDate.getDate() + 14);
+  await prisma.biomedPreventiveMaintenance.upsert({
+    where: { numeroMP: "MP-DEMO-0001" },
+    update: {},
+    create: {
+      numeroMP: "MP-DEMO-0001",
+      equipementId: biomedEq.id,
+      protocoleId: biomedProto.id,
+      frequence: BiomedMpPeriodicity.ANNUEL,
+      datePrevue: mpDate,
+      statut: BiomedPmStatus.PLANIFIEE,
+    },
+  });
+
+  const mpLate = new Date();
+  mpLate.setDate(mpLate.getDate() - 10);
+  await prisma.biomedPreventiveMaintenance.upsert({
+    where: { numeroMP: "MP-DEMO-RETARD" },
+    update: {},
+    create: {
+      numeroMP: "MP-DEMO-RETARD",
+      equipementId: biomedEq.id,
+      frequence: BiomedMpPeriodicity.TRIMESTRIEL,
+      datePrevue: mpLate,
+      statut: BiomedPmStatus.EN_RETARD,
+    },
+  });
+
+  await prisma.biomedCorrectiveMaintenance.upsert({
+    where: { numeroMC: "MC-DEMO-0001" },
+    update: {},
+    create: {
+      numeroMC: "MC-DEMO-0001",
+      equipementId: biomedEq.id,
+      technicienId: biomedTech.id,
+      panneConstatee: "Veilleuse alarme",
+      statutFinal: BiomedMcFinalStatus.RESOLU,
+      dateDebut: new Date(),
+      coutTotal: 450,
+    },
+  });
+
+  await prisma.biomedQualityControl.upsert({
+    where: { numeroCQ: "CQ-DEMO-0001" },
+    update: {},
+    create: {
+      numeroCQ: "CQ-DEMO-0001",
+      equipementId: biomedEq.id,
+      typeControle: BiomedCqType.PERFORMANCE,
+      periodicite: BiomedMpPeriodicity.ANNUEL,
+      datePrevue: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000),
+      statut: BiomedCqStatus.PLANIFIE,
+    },
+  });
+
+  await prisma.biomedStockMovement.upsert({
+    where: { numeroMvt: "MVT-DEMO-0001" },
+    update: {},
+    create: {
+      numeroMvt: "MVT-DEMO-0001",
+      type: BiomedStockMvtType.SORTIE,
+      pieceId: biomedPiece.id,
+      quantite: 1,
+      quantiteAvant: 3,
+      quantiteApres: 2,
+      motif: "Maintenance IRM demo",
+      equipementId: biomedEq.id,
+      siteId: biomedSite.id,
+      userId: admin.id,
+    },
+  });
+
+  await prisma.biomedPurchaseRequest.upsert({
+    where: { numeroDA: "DA-DEMO-0001" },
+    update: {},
+    create: {
+      numeroDA: "DA-DEMO-0001",
+      typeAchat: BiomedPurchaseType.PIECE_DETACHEE,
+      pieceId: biomedPiece.id,
+      designation: "Reassort filtres HEPA",
+      quantite: 4,
+      statut: BiomedPurchaseStatus.SOUMIS,
+      urgence: true,
+    },
+  });
+
+  await prisma.biomedAssetFreeze.upsert({
+    where: { numeroImmo: "IMMO-DEMO-01" },
+    update: {},
+    create: {
+      numeroImmo: "IMMO-DEMO-01",
+      equipementId: biomedEq.id,
+      dateImmobilisation: new Date(),
+      cause: "Controle reglementaire en cours",
+      decision: BiomedImmobilisationDecision.EN_ATTENTE_IMMO,
+    },
+  });
+
+  await prisma.biomedInvestmentPlan.upsert({
+    where: { numeroPDI: "PDI-DEMO-2027-01" },
+    update: {},
+    create: {
+      numeroPDI: "PDI-DEMO-2027-01",
+      annee: 2027,
+      siteId: biomedSite.id,
+      familleId: biomedFam.id,
+      equipementId: biomedEq.id,
+      designationNouveau: "IRM 3T — remplacement programme",
+      criticite: BiomedCritLevel.ELEVE,
+      coutRemplacement: 1_800_000,
+      priorite: BiomedInvestmentPriority.P2,
+      statutBudgetaire: BiomedInvestmentBudgetStatus.PROPOSE,
     },
   });
 }

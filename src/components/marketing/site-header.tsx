@@ -4,6 +4,7 @@ const nav = [
   { href: "/a-propos", label: "A propos" },
   { href: "/secteurs", label: "Secteurs" },
   { href: "/services", label: "Services" },
+  { href: "/portal/gmao-biomed", label: "GMAO bio." },
   { href: "/references", label: "References" },
   { href: "/contact", label: "Contact" },
 ];
