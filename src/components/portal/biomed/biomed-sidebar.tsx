@@ -175,7 +175,12 @@ export function BiomedSidebar({ showReports, showAdmin }: Props) {
           );
         })}
       </nav>
-      <div className="border-t border-slate-200 px-4 py-3 text-xs text-slate-400">Module biomedical v1</div>
+      <div className="border-t border-slate-200 px-4 py-3 text-xs text-slate-500">
+        <Link href="/portal/client" className="font-medium text-kbio-teal hover:underline">
+          Retour espace client
+        </Link>
+        <span className="mt-1 block text-slate-400">Module biomedical v1</span>
+      </div>
     </aside>
   );
 }

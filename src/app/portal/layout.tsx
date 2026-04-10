@@ -1,20 +1,10 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { PortalClientMenu } from "@/components/portal/portal-client-menu";
 
 export const metadata: Metadata = {
   title: "Portail client",
 };
-
-const primaryNav = [
-  { href: "/portal", label: "Tableau de bord" },
-  { href: "/portal/projects", label: "Projets" },
-];
-
-const maintenanceNav = [
-  { href: "/portal/assets", label: "Equipements" },
-  { href: "/portal/work-orders", label: "Ordres de travail" },
-  { href: "/portal/gmao-biomed", label: "GMAO biomedicale" },
-];
 
 const adminNav = [{ href: "/portal/admin", label: "Admin" }];
 
@@ -34,30 +24,13 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
               <span className="text-sm font-medium text-slate-600">Portail client</span>
             </div>
             <nav className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-              <span className="hidden text-xs font-semibold uppercase tracking-wide text-slate-400 lg:inline">
-                Suivi
-              </span>
-              {primaryNav.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="font-medium text-slate-700 transition hover:text-kbio-navy"
-                >
-                  {item.label}
-                </Link>
-              ))}
-              <span className="hidden text-xs font-semibold uppercase tracking-wide text-slate-400 lg:inline">
-                GMAO
-              </span>
-              {maintenanceNav.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="text-slate-600 transition hover:text-kbio-navy"
-                >
-                  {item.label}
-                </Link>
-              ))}
+              <Link
+                href="/portal"
+                className="font-medium text-slate-700 transition hover:text-kbio-navy"
+              >
+                Tableau de bord
+              </Link>
+              <PortalClientMenu />
               {adminNav.map((item) => (
                 <Link
                   key={item.href}

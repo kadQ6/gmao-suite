@@ -48,6 +48,20 @@ export default async function GmaoBiomedDashboardPage() {
           <p className="mt-1 text-sm text-slate-600">
             Parc biomedical, maintenance et stock — donnees stockees dans PostgreSQL (meme base que le portail).
           </p>
+          <p className="mt-2 text-xs text-slate-500">
+            Exports CSV (compatibles Excel) :{" "}
+            <a className="font-medium text-kbio-teal hover:underline" href="/api/exports/biomed-equipment">
+              equipements
+            </a>
+            {" · "}
+            <a className="font-medium text-kbio-teal hover:underline" href="/api/exports/biomed-interventions">
+              demandes d&apos;intervention
+            </a>
+            {" · "}
+            <a className="font-medium text-kbio-teal hover:underline" href="/api/exports/biomed-equipment-template">
+              modele import equipement
+            </a>
+          </p>
         </div>
         <p className="text-sm text-slate-500">
           {new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}

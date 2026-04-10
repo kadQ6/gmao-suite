@@ -19,14 +19,28 @@ export default async function BiomedEquipementsPage() {
     <section className="space-y-4">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <h1 className="text-2xl font-semibold text-kbio-navy">Parc equipements</h1>
-        {canWrite ? (
-          <Link
-            href="/portal/gmao-biomed/equipements/nouveau"
-            className="inline-flex items-center justify-center rounded-full bg-kbio-teal px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+        <div className="flex flex-wrap items-center gap-2">
+          <a
+            href="/api/exports/biomed-equipment"
+            className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:border-kbio-teal/40 hover:text-kbio-navy"
           >
-            Nouvel equipement
-          </Link>
-        ) : null}
+            Export CSV (Excel)
+          </a>
+          <a
+            href="/api/exports/biomed-equipment-template"
+            className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:border-kbio-teal/40 hover:text-kbio-navy"
+          >
+            Modele import
+          </a>
+          {canWrite ? (
+            <Link
+              href="/portal/gmao-biomed/equipements/nouveau"
+              className="inline-flex items-center justify-center rounded-full bg-kbio-teal px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+            >
+              Nouvel equipement
+            </Link>
+          ) : null}
+        </div>
       </div>
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
         <table className="min-w-full text-left text-sm">

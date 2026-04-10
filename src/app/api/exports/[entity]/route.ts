@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-auth";
+import { canReadBiomed } from "@/lib/biomed/rbac";
 import { getAssetScopeWhere, getProjectScopeWhere, getWorkOrderScopeWhere } from "@/lib/portal-scope";
 import { prisma } from "@/lib/prisma";
 
@@ -121,6 +122,125 @@ export async function GET(request: Request, { params }: Params) {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
         "Content-Disposition": `attachment; filename="ordres-travail${projectId ? `-${projectId}` : ""}.csv"`,
+      },
+    });
+  }
+
+  if (entity === "biomed-equipment-template") {
+    const bioAuth = await requireSession();
+    if (!bioAuth.ok) return bioAuth.response;
+    if (!canReadBiomed(bioAuth.session.user.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    const csv =
+      "\uFEFF" +
+      asCsv(
+        ["numeroGMAO", "designation", "familleId", "siteId"],
+        [
+          [
+            "GMAO-EXEMPLE-001",
+            "Libelle equipement",
+            "Remplacer par id Prisma de BiomedFamily (voir liste familles en base)",
+            "Remplacer par id Prisma de BiomedSite",
+          ],
+        ],
+      );
+    return new NextResponse(csv, {
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": 'attachment; filename="modele-import-gmao-biomed-equipements.csv"',
+      },
+    });
+  }
+
+  if (entity === "biomed-equipment") {
+    const bioAuth = await requireSession();
+    if (!bioAuth.ok) return bioAuth.response;
+    if (!canReadBiomed(bioAuth.session.user.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    const rows = await prisma.biomedEquipment.findMany({
+      orderBy: { numeroGMAO: "asc" },
+      take: 10000,
+      include: {
+        site: { select: { code: true, nom: true } },
+        famille: { select: { code: true, nom: true } },
+        local: { select: { code: true, nom: true } },
+      },
+    });
+    const csv =
+      "\uFEFF" +
+      asCsv(
+        [
+          "numeroGMAO",
+          "designation",
+          "familleCode",
+          "familleNom",
+          "siteCode",
+          "siteNom",
+          "localCode",
+          "statut",
+          "criticite",
+          "marque",
+          "modele",
+          "classeIEC",
+          "actif",
+        ],
+        rows.map((r) => [
+          r.numeroGMAO,
+          r.designation,
+          r.famille.code,
+          r.famille.nom,
+          r.site.code,
+          r.site.nom,
+          r.local?.code ?? "",
+          r.statut,
+          r.criticite,
+          r.marque ?? "",
+          r.modele ?? "",
+          r.classeIEC,
+          r.actif ? "oui" : "non",
+        ]),
+      );
+    return new NextResponse(csv, {
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": 'attachment; filename="gmao-biomed-equipements.csv"',
+      },
+    });
+  }
+
+  if (entity === "biomed-interventions") {
+    const bioAuth = await requireSession();
+    if (!bioAuth.ok) return bioAuth.response;
+    if (!canReadBiomed(bioAuth.session.user.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    const rows = await prisma.biomedInterventionRequest.findMany({
+      orderBy: { dateCreation: "desc" },
+      take: 10000,
+      include: {
+        equipement: { select: { numeroGMAO: true, designation: true } },
+      },
+    });
+    const csv =
+      "\uFEFF" +
+      asCsv(
+        ["numeroDI", "dateCreation", "equipementGMAO", "designationEquipement", "urgence", "statut", "description"],
+        rows.map((r) => [
+          r.numeroDI,
+          r.dateCreation.toISOString(),
+          r.equipement.numeroGMAO,
+          r.equipement.designation,
+          r.niveauUrgence,
+          r.statut,
+          r.descriptionPanne.replace(/\r?\n/g, " ").slice(0, 500),
+        ]),
+      );
+    return new NextResponse(csv, {
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": 'attachment; filename="gmao-biomed-demandes-intervention.csv"',
       },
     });
   }

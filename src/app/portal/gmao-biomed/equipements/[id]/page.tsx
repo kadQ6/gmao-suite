@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { DeleteBiomedEquipmentForm } from "@/components/portal/biomed/delete-biomed-equipment-form";
 import { canWriteBiomed } from "@/lib/biomed/rbac";
 import { prisma } from "@/lib/prisma";
 
@@ -70,13 +71,14 @@ export default async function BiomedEquipementDetailPage({ params }: Props) {
       ) : null}
 
       {canWrite ? (
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Link
             href={`/portal/gmao-biomed/interventions/nouvelle?equipementId=${encodeURIComponent(e.id)}`}
             className="inline-flex rounded-full border border-kbio-teal bg-white px-4 py-2 text-sm font-medium text-kbio-teal hover:bg-teal-50"
           >
             Declarer une DI
           </Link>
+          <DeleteBiomedEquipmentForm equipmentId={e.id} numeroGMAO={e.numeroGMAO} />
         </div>
       ) : null}
     </section>

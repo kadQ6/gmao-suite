@@ -51,7 +51,12 @@ export default async function PortalDashboardPage() {
         <h2 className="text-2xl font-semibold text-slate-900">Tableau de bord</h2>
         <p className="text-sm text-slate-600">
           Vue globale : le detail du suivi se fait{" "}
-          <strong className="font-medium text-slate-800">par projet</strong> (taches et pilotage).
+          <strong className="font-medium text-slate-800">par projet</strong> (taches et pilotage). Les applications
+          metier sont regroupees sous{" "}
+          <Link href="/portal/client" className="font-medium text-kbio-teal hover:underline">
+            Espace client
+          </Link>{" "}
+          dans le menu du portail.
         </p>
       </div>
 
@@ -72,6 +77,7 @@ export default async function PortalDashboardPage() {
             : "Consultez vos projets et vos indicateurs de suivi."}
         </p>
         <div className="mt-4 flex flex-wrap items-center gap-3">
+          <PortalPrimaryLink href="/portal/client">Espace client</PortalPrimaryLink>
           {ctx.canWrite ? <PortalPrimaryLink href="/portal/projects/new">Nouveau projet</PortalPrimaryLink> : null}
           {ctx.canWrite ? <PortalPrimaryLink href="/portal/assets/new">Nouvel equipement</PortalPrimaryLink> : null}
           <Link

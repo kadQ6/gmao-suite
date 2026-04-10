@@ -52,6 +52,26 @@ export async function createBiomedEquipment(formData: FormData) {
   redirect(`/portal/gmao-biomed/equipements/${created.id}`);
 }
 
+export async function deleteBiomedEquipment(formData: FormData) {
+  const session = await getServerSession(authOptions);
+  if (!canWriteBiomed(session?.user.role)) {
+    throw new Error("Non autorise");
+  }
+
+  const equipmentId = String(formData.get("equipmentId") ?? "").trim();
+  if (!equipmentId) {
+    throw new Error("Identifiant manquant");
+  }
+
+  await prisma.biomedEquipment.delete({
+    where: { id: equipmentId },
+  });
+
+  revalidatePath("/portal/gmao-biomed");
+  revalidatePath("/portal/gmao-biomed/equipements");
+  redirect("/portal/gmao-biomed/equipements");
+}
+
 const URGENCE_VALUES = new Set<string>(Object.values(BiomedInterventionUrgency));
 const MC_STATUT_VALUES = new Set<string>(Object.values(BiomedMcFinalStatus));
 

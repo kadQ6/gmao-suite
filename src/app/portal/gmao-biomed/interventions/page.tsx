@@ -22,14 +22,22 @@ export default async function BiomedInterventionsPage() {
     <section className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <h1 className="text-2xl font-semibold text-kbio-navy">Demandes d&apos;intervention</h1>
-        {canWrite ? (
-          <Link
-            href="/portal/gmao-biomed/interventions/nouvelle"
-            className="inline-flex w-fit items-center justify-center rounded-full bg-kbio-teal px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+        <div className="flex flex-wrap items-center gap-2">
+          <a
+            href="/api/exports/biomed-interventions"
+            className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:border-kbio-teal/40 hover:text-kbio-navy"
           >
-            Nouvelle DI
-          </Link>
-        ) : null}
+            Export CSV (Excel)
+          </a>
+          {canWrite ? (
+            <Link
+              href="/portal/gmao-biomed/interventions/nouvelle"
+              className="inline-flex w-fit items-center justify-center rounded-full bg-kbio-teal px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+            >
+              Nouvelle DI
+            </Link>
+          ) : null}
+        </div>
       </div>
       <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
         <table className="min-w-full text-left text-sm">
