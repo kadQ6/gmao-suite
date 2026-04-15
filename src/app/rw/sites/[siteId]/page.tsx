@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { PsaEquipmentStatus } from "@prisma/client";
 import { getServerSession } from "next-auth";
@@ -8,15 +8,18 @@ import { EquipmentStatusForm } from "@/components/psa/equipment-status-form";
 
 export const dynamic = "force-dynamic";
 
+const eur = (n: number) =>
+  new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", minimumFractionDigits: 0 }).format(n);
+
 function statusBadge(s: PsaEquipmentStatus) {
-  const base = "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold border";
+  const base = "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold border uppercase tracking-wide";
   switch (s) {
     case "FONCTIONNEL":
       return `${base} bg-emerald-100 text-emerald-800 border-emerald-300`;
     case "EN_PANNE":
       return `${base} bg-red-100 text-red-800 border-red-300`;
     case "HORS_SERVICE":
-      return `${base} bg-red-200 text-red-900 border-red-400`;
+      return `${base} bg-red-200 text-red-950 border-red-500`;
     case "EN_ATTENTE":
       return `${base} bg-gray-200 text-gray-700 border-gray-300`;
     default:
@@ -26,38 +29,55 @@ function statusBadge(s: PsaEquipmentStatus) {
 
 function statusLabel(s: PsaEquipmentStatus) {
   switch (s) {
-    case "FONCTIONNEL": return "Fonctionnel";
-    case "EN_PANNE": return "En panne";
-    case "EN_ATTENTE": return "En attente";
-    case "HORS_SERVICE": return "Hors service";
-    default: return s;
+    case "FONCTIONNEL":
+      return "FONCTIONNEL";
+    case "EN_PANNE":
+      return "EN_PANNE";
+    case "EN_ATTENTE":
+      return "EN_ATTENTE";
+    case "HORS_SERVICE":
+      return "HORS_SERVICE";
+    default:
+      return s;
   }
 }
 
 function rowBg(s: PsaEquipmentStatus) {
   switch (s) {
-    case "FONCTIONNEL": return "bg-emerald-50/30 hover:bg-emerald-50/60";
-    case "EN_PANNE": return "bg-red-50/40 hover:bg-red-50/70";
-    case "HORS_SERVICE": return "bg-red-100/30 hover:bg-red-100/50";
-    case "EN_ATTENTE": return "bg-gray-50/50 hover:bg-gray-100/60";
-    default: return "hover:bg-slate-50";
+    case "FONCTIONNEL":
+      return "bg-emerald-50/30 hover:bg-emerald-50/60";
+    case "EN_PANNE":
+      return "bg-red-50/40 hover:bg-red-50/70";
+    case "HORS_SERVICE":
+      return "bg-red-50/40 hover:bg-red-50/70";
+    case "EN_ATTENTE":
+      return "bg-gray-50/50 hover:bg-gray-100/60";
+    default:
+      return "hover:bg-slate-50";
   }
 }
 
 function statusDot(s: PsaEquipmentStatus) {
   switch (s) {
-    case "FONCTIONNEL": return "bg-emerald-500";
-    case "EN_PANNE": return "bg-red-500";
-    case "HORS_SERVICE": return "bg-red-700";
-    case "EN_ATTENTE": return "bg-gray-400";
-    default: return "bg-slate-400";
+    case "FONCTIONNEL":
+      return "bg-emerald-500";
+    case "EN_PANNE":
+      return "bg-red-500";
+    case "HORS_SERVICE":
+      return "bg-red-800";
+    case "EN_ATTENTE":
+      return "bg-gray-400";
+    default:
+      return "bg-slate-400";
   }
 }
 
 export default async function PsaSiteDetailPage({ params }: { params: Promise<{ siteId: string }> }) {
   const { siteId } = await params;
   const session = await getServerSession(authOptions);
-  const isAdmin = session?.user?.role === "SUPER_ADMIN" || session?.user?.role === "ADMIN";
+  if (!session?.user) redirect("/rw/login");
+
+  const isAdmin = session.user.role === "SUPER_ADMIN" || session.user.role === "ADMIN";
 
   const site = await prisma.psaSite.findUnique({
     where: { id: siteId },
@@ -65,8 +85,10 @@ export default async function PsaSiteDetailPage({ params }: { params: Promise<{ 
       equipements: {
         orderBy: { code: "asc" },
         include: {
-          _count: { select: { maintenances: true, piecesBesoins: true } },
+          _count: { select: { maintenances: true, piecesBesoins: true, actions: true } },
           piecesBesoins: { select: { quantite: true, prixUnitaire: true, urgence: true } },
+          actions: { select: { id: true, statut: true, coutEstime: true } },
+          maintenances: { select: { coutTotal: true } },
         },
       },
     },
@@ -81,48 +103,66 @@ export default async function PsaSiteDetailPage({ params }: { params: Promise<{ 
     return sum + eq.piecesBesoins.reduce((s, p) => s + (Number(p.prixUnitaire) || 0) * p.quantite, 0);
   }, 0);
 
-  const urgentPiecesCount = site.equipements.reduce((sum, eq) => {
-    return sum + eq.piecesBesoins.filter((p) => p.urgence).length;
+  const totalActionsCount = site.equipements.reduce((sum, eq) => sum + eq._count.actions, 0);
+
+  const totalMaintCostDone = site.equipements.reduce(
+    (sum, eq) => sum + eq.maintenances.reduce((s, m) => s + (Number(m.coutTotal) || 0), 0),
+    0
+  );
+
+  const totalRemediationNeeded = site.equipements.reduce((sum, eq) => {
+    return (
+      sum +
+      eq.actions
+        .filter((a) => a.statut !== "TERMINE")
+        .reduce((s, a) => s + (Number(a.coutEstime) || 0), 0)
+    );
   }, 0);
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumb */}
       <nav className="text-xs text-slate-500">
-        <Link href="/rw" className="hover:text-[#0a2540]">Sites PSA</Link>
+        <Link href="/rw" className="hover:text-[#0a2540]">
+          Sites PSA
+        </Link>
         <span className="mx-2">/</span>
         <span className="font-medium text-slate-700">{site.nom}</span>
       </nav>
 
-      {/* Site header card */}
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <span className="inline-block rounded-md bg-[#0a2540]/10 px-2 py-0.5 text-xs font-mono font-bold text-[#0a2540] mb-2">
+            <span className="mb-2 inline-block rounded-md bg-[#0a2540]/10 px-2 py-0.5 font-mono text-xs font-bold text-[#0a2540]">
               {site.code}
             </span>
             <h2 className="text-xl font-bold text-[#0a2540]">{site.nom}</h2>
-            <div className="flex flex-wrap gap-3 mt-2 text-sm text-slate-600">
+            <div className="mt-2 flex flex-wrap gap-3 text-sm text-slate-600">
               {site.localisation && <span>📍 {site.localisation}</span>}
-              {site.capaciteO2 && <span className="text-teal-600 font-medium">O₂ {site.capaciteO2}</span>}
+              {site.capaciteO2 && (
+                <span className="font-medium text-teal-600">Capacité O₂ {site.capaciteO2}</span>
+              )}
               {site.contactNom && <span>👤 {site.contactNom}</span>}
               {site.contactTel && <span>📞 {site.contactTel}</span>}
             </div>
-            {site.description && (
-              <p className="mt-3 text-sm text-slate-500 max-w-2xl">{site.description}</p>
-            )}
+            {site.description && <p className="mt-3 max-w-2xl text-sm text-slate-500">{site.description}</p>}
           </div>
 
-          <Link
-            href={`/rw/sites/${site.id}/pieces`}
-            className="portal-btn-secondary flex-shrink-0 text-sm"
-          >
-            Voir pièces détachées →
-          </Link>
+          <div className="flex flex-shrink-0 flex-col gap-2 sm:items-end">
+            <Link href={`/rw/sites/${siteId}/pieces`} className="portal-btn-secondary text-sm">
+              Pièces détachées →
+            </Link>
+            {isAdmin && (
+              <Link
+                href={`/rw/sites/${siteId}/equipements/nouveau`}
+                className="inline-flex items-center justify-center rounded-lg border border-teal-600 bg-teal-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-teal-700"
+              >
+                Ajouter un équipement
+              </Link>
+            )}
+          </div>
         </div>
 
-        {/* KPI strip */}
-        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <div className="rounded-lg bg-slate-50 px-3 py-2 text-center">
             <p className="text-2xl font-bold text-[#0a2540]">{site.equipements.length}</p>
             <p className="text-xs text-slate-500">Équipements</p>
@@ -140,24 +180,23 @@ export default async function PsaSiteDetailPage({ params }: { params: Promise<{ 
             <p className="text-xs text-gray-500">En attente</p>
           </div>
           <div className="rounded-lg bg-amber-50 px-3 py-2 text-center">
-            <p className="text-xl font-bold text-amber-700">
-              {new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", minimumFractionDigits: 0 }).format(totalCostPieces)}
-            </p>
-            <p className="text-xs text-amber-600">
-              Pièces nécessaires{urgentPiecesCount > 0 ? ` (${urgentPiecesCount} urgentes)` : ""}
-            </p>
+            <p className="text-xl font-bold text-amber-700">{eur(totalCostPieces)}</p>
+            <p className="text-xs text-amber-600">Coût pièces (EUR)</p>
+          </div>
+          <div className="rounded-lg border border-teal-100 bg-teal-50/60 px-3 py-2 text-center">
+            <p className="text-2xl font-bold text-teal-700">{totalActionsCount}</p>
+            <p className="text-xs text-teal-600">Actions</p>
           </div>
         </div>
       </div>
 
-      {/* Equipment table */}
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-100 px-5 py-4">
           <h3 className="text-base font-semibold text-[#0a2540]">Équipements du site</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
-            <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500 border-b border-slate-200">
+            <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-4 py-3 text-left">Statut</th>
                 <th className="px-4 py-3 text-left">Code</th>
@@ -166,13 +205,17 @@ export default async function PsaSiteDetailPage({ params }: { params: Promise<{ 
                 <th className="px-4 py-3 text-left">Type</th>
                 <th className="px-4 py-3 text-center">Maint.</th>
                 <th className="px-4 py-3 text-center">Pièces</th>
-                {isAdmin && <th className="px-4 py-3 text-center">Action</th>}
-                <th className="px-4 py-3"></th>
+                <th className="px-4 py-3 text-center">Actions</th>
+                {isAdmin && <th className="px-4 py-3 text-center">Statut</th>}
+                <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {site.equipements.map((eq) => {
-                const pieceCost = eq.piecesBesoins.reduce((s, p) => s + (Number(p.prixUnitaire) || 0) * p.quantite, 0);
+                const pieceCost = eq.piecesBesoins.reduce(
+                  (s, p) => s + (Number(p.prixUnitaire) || 0) * p.quantite,
+                  0
+                );
                 return (
                   <tr key={eq.id} className={`transition-colors ${rowBg(eq.statut)}`}>
                     <td className="px-4 py-3">
@@ -185,30 +228,29 @@ export default async function PsaSiteDetailPage({ params }: { params: Promise<{ 
                     <td className="px-4 py-3 font-medium text-slate-800">
                       {eq.designation}
                       {eq.observation && (
-                        <p className="text-xs text-red-600 mt-0.5 max-w-xs truncate" title={eq.observation}>
-                          ⚠ {eq.observation}
+                        <p className="mt-0.5 max-w-xs truncate text-xs font-medium text-red-600" title={eq.observation}>
+                          {eq.observation}
                         </p>
                       )}
                     </td>
                     <td className="px-4 py-3 text-slate-600">
-                      {eq.marque} {eq.modele}
+                      {[eq.marque, eq.modele].filter(Boolean).join(" ") || "—"}
                     </td>
-                    <td className="px-4 py-3 text-slate-500 text-xs">{eq.type}</td>
+                    <td className="px-4 py-3 text-xs text-slate-500">{eq.type ?? "—"}</td>
                     <td className="px-4 py-3 text-center tabular-nums">{eq._count.maintenances}</td>
                     <td className="px-4 py-3 text-center">
                       {eq._count.piecesBesoins > 0 ? (
-                        <span className="text-xs text-amber-700 font-medium">
+                        <span className="text-xs font-medium text-amber-700">
                           {eq._count.piecesBesoins}
                           {pieceCost > 0 && (
-                            <span className="block text-[10px] text-slate-500">
-                              {new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", minimumFractionDigits: 0 }).format(pieceCost)}
-                            </span>
+                            <span className="mt-0.5 block text-[10px] font-normal text-slate-500">{eur(pieceCost)}</span>
                           )}
                         </span>
                       ) : (
                         <span className="text-slate-300">—</span>
                       )}
                     </td>
+                    <td className="px-4 py-3 text-center tabular-nums text-slate-700">{eq._count.actions}</td>
                     {isAdmin && (
                       <td className="px-4 py-3 text-center">
                         <EquipmentStatusForm equipId={eq.id} currentStatus={eq.statut} />
@@ -216,8 +258,8 @@ export default async function PsaSiteDetailPage({ params }: { params: Promise<{ 
                     )}
                     <td className="px-4 py-3 text-right">
                       <Link
-                        href={`/rw/sites/${site.id}/equipements/${eq.id}`}
-                        className="text-xs font-medium text-teal-600 hover:text-[#0a2540] transition-colors"
+                        href={`/rw/sites/${siteId}/equipements/${eq.id}`}
+                        className="text-xs font-medium text-teal-600 transition-colors hover:text-[#0a2540]"
                       >
                         Détails →
                       </Link>
@@ -228,6 +270,24 @@ export default async function PsaSiteDetailPage({ params }: { params: Promise<{ 
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5 shadow-sm">
+        <h3 className="mb-3 text-sm font-semibold text-[#0a2540]">Synthèse des coûts (site)</h3>
+        <dl className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+            <dt className="text-xs font-medium text-slate-500">Maintenances réalisées</dt>
+            <dd className="mt-1 text-lg font-bold text-[#0a2540]">{eur(totalMaintCostDone)}</dd>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+            <dt className="text-xs font-medium text-slate-500">Remédiation estimée (actions non terminées)</dt>
+            <dd className="mt-1 text-lg font-bold text-teal-600">{eur(totalRemediationNeeded)}</dd>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+            <dt className="text-xs font-medium text-slate-500">Pièces nécessaires</dt>
+            <dd className="mt-1 text-lg font-bold text-amber-700">{eur(totalCostPieces)}</dd>
+          </div>
+        </dl>
       </div>
     </div>
   );
