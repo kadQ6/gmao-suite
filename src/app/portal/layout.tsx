@@ -31,6 +31,12 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                 Tableau de bord
               </Link>
               <PortalClientMenu />
+              <Link
+                href="/portal/psa-rwanda"
+                className="font-medium text-kbio-teal transition hover:text-kbio-navy"
+              >
+                PSA Rwanda
+              </Link>
               {adminNav.map((item) => (
                 <Link
                   key={item.href}
