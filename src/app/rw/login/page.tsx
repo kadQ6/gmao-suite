@@ -1,11 +1,10 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useState, Suspense } from "react";
 
 function LoginForm() {
-  const router = useRouter();
   const params = useSearchParams();
   const callbackUrl = params.get("callbackUrl") || "/rw";
   const [email, setEmail] = useState("");
@@ -22,7 +21,7 @@ function LoginForm() {
       setError("Email ou mot de passe incorrect.");
       setLoading(false);
     } else {
-      router.push(callbackUrl);
+      window.location.href = callbackUrl;
     }
   }
 

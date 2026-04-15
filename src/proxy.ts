@@ -10,45 +10,42 @@ export async function proxy(request: NextRequest) {
 
   // ── rw.kbio-conseil.com → standalone PSA Rwanda app ──
   if (RW_HOSTS.includes(host)) {
-    // Static assets and API pass through
-    if (
-      pathname.startsWith("/api/") ||
-      pathname.startsWith("/_next/") ||
-      pathname.startsWith("/rw/") ||
-      pathname === "/favicon.ico"
-    ) {
-      // Auth check for /rw protected pages
-      if (pathname.startsWith("/rw") && pathname !== "/rw/login") {
-        const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-        if (!token) {
-          const loginUrl = new URL("/rw/login", request.url);
-          loginUrl.searchParams.set("callbackUrl", pathname);
-          return NextResponse.redirect(loginUrl);
-        }
-      }
+    // Static assets and API always pass through
+    if (pathname.startsWith("/api/") || pathname.startsWith("/_next/") || pathname === "/favicon.ico") {
       return NextResponse.next();
     }
 
-    // Root → redirect to /rw (standalone home)
+    // Root → redirect to /rw
     if (pathname === "/" || pathname === "") {
       return NextResponse.redirect(new URL("/rw", request.url));
     }
 
     // Old portal paths → redirect to /rw equivalents
     if (pathname.startsWith("/portal/psa-rwanda")) {
-      const rest = pathname.replace("/portal/psa-rwanda", "");
-      return NextResponse.redirect(new URL(`/rw${rest}`, request.url));
+      return NextResponse.redirect(new URL(`/rw${pathname.replace("/portal/psa-rwanda", "")}`, request.url));
     }
     if (pathname.startsWith("/portal") || pathname === "/login") {
       return NextResponse.redirect(new URL("/rw", request.url));
     }
 
-    // Any other path not starting with /rw → redirect to /rw
-    if (!pathname.startsWith("/rw")) {
-      return NextResponse.redirect(new URL("/rw", request.url));
+    // /rw/login is public
+    if (pathname === "/rw/login") {
+      return NextResponse.next();
     }
 
-    return NextResponse.next();
+    // All /rw/* pages require auth
+    if (pathname === "/rw" || pathname.startsWith("/rw/")) {
+      const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+      if (!token) {
+        const loginUrl = new URL("/rw/login", request.url);
+        loginUrl.searchParams.set("callbackUrl", pathname);
+        return NextResponse.redirect(loginUrl);
+      }
+      return NextResponse.next();
+    }
+
+    // Anything else → redirect to /rw
+    return NextResponse.redirect(new URL("/rw", request.url));
   }
 
   // ── Main domain (kbio-conseil.com) — existing logic ──
