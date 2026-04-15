@@ -281,7 +281,7 @@ export default async function PsaEquipmentDetailPage({
         </div>
         {isAdmin && (
           <div className="border-b border-slate-100 bg-slate-50 px-5 py-4">
-            <ActionForm equipId={eq.id} siteId={siteId} />
+            <ActionForm equipId={eq.id} />
           </div>
         )}
         {eq.actions.length === 0 ? (
@@ -321,7 +321,7 @@ export default async function PsaEquipmentDetailPage({
                     <td className="px-4 py-2 tabular-nums text-slate-600">{formatDate(a.echeance)}</td>
                     {isAdmin && (
                       <td className="px-4 py-2 text-right">
-                        <DeleteActionButton actionId={a.id} equipId={eq.id} siteId={siteId} />
+                        <DeleteActionButton actionId={a.id} />
                       </td>
                     )}
                   </tr>

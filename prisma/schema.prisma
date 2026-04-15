@@ -1401,6 +1401,7 @@ model PsaEquipment {
   site              PsaSite            @relation(fields: [siteId], references: [id], onDelete: Cascade)
   maintenances      PsaMaintenance[]
   piecesBesoins     PsaPieceNeed[]
+  actions           PsaAction[]
 
   @@index([siteId])
   @@index([statut])
@@ -1447,5 +1448,38 @@ model PsaPieceNeed {
   equipement    PsaEquipment @relation(fields: [equipementId], references: [id], onDelete: Cascade)
 
   @@index([equipementId])
+}
+
+enum PsaActionStatus {
+  A_FAIRE
+  EN_COURS
+  TERMINE
+  ANNULE
+}
+
+enum PsaActionPriority {
+  CRITIQUE
+  HAUTE
+  NORMALE
+  BASSE
+}
+
+model PsaAction {
+  id            String            @id @default(cuid())
+  equipementId  String
+  designation   String
+  description   String?
+  priorite      PsaActionPriority @default(NORMALE)
+  statut        PsaActionStatus   @default(A_FAIRE)
+  coutEstime    Decimal?          @db.Decimal(12, 2)
+  responsable   String?
+  echeance      DateTime?
+  observations  String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  equipement    PsaEquipment      @relation(fields: [equipementId], references: [id], onDelete: Cascade)
+
+  @@index([equipementId])
+  @@index([statut])
 }
 

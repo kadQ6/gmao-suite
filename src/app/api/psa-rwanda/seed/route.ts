@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
  */
 export async function POST() {
   // Wipe existing PSA demo data (cascade deletes children)
+  await prisma.psaAction.deleteMany();
   await prisma.psaPieceNeed.deleteMany();
   await prisma.psaMaintenance.deleteMany();
   await prisma.psaEquipment.deleteMany();
@@ -884,6 +885,79 @@ export async function POST() {
     }
   }
 
+  // ── Actions to undertake per broken/waiting equipment ──
+  const actionsData: { equipCode: string; actions: { designation: string; description: string; priorite: string; coutEstime: number; responsable: string }[] }[] = [
+    {
+      equipCode: "PSA-RW01-COMP-02",
+      actions: [
+        { designation: "Remplacer roulements moteur", description: "Démontage moteur, remplacement roulements SKF 6312-2RS, réassemblage et test vibrations", priorite: "CRITIQUE", coutEstime: 650, responsable: "HAKITIMANA Fabrice" },
+        { designation: "Test charge compresseur", description: "Après remplacement roulements, test en charge 4h avec monitoring température et vibrations", priorite: "HAUTE", coutEstime: 0, responsable: "HAKITIMANA Fabrice" },
+      ],
+    },
+    {
+      equipCode: "PSA-RW01-ANA-01",
+      actions: [
+        { designation: "Remplacer cellule O₂ galvanique", description: "Installation nouvelle cellule Teledyne C-3, calibration 2 points (air ambiant + gaz étalon)", priorite: "HAUTE", coutEstime: 380, responsable: "HAKITIMANA Fabrice" },
+      ],
+    },
+    {
+      equipCode: "PSA-RW01-BOOST-01",
+      actions: [
+        { designation: "Remplacer clapet anti-retour HP", description: "Dépose ancien clapet, installation neuf, test étanchéité HP 200 bar", priorite: "CRITIQUE", coutEstime: 450, responsable: "HAKITIMANA Fabrice" },
+        { designation: "Remplacer kit joints HP", description: "Remplacement préventif de tous les joints HP du surpresseur", priorite: "NORMALE", coutEstime: 320, responsable: "RWANGWA Bosco" },
+      ],
+    },
+    {
+      equipCode: "PSA-RW02-SECH-01",
+      actions: [
+        { designation: "Réparer fuite réfrigérant", description: "Localisation fuite, brasure cuivre-argent, test étanchéité, recharge R134a 12kg", priorite: "CRITIQUE", coutEstime: 250, responsable: "HABIMANA Patrick" },
+        { designation: "Contrôle point de rosée", description: "Après réparation, vérifier point de rosée < +3°C pendant 24h", priorite: "HAUTE", coutEstime: 0, responsable: "HABIMANA Patrick" },
+      ],
+    },
+    {
+      equipCode: "PSA-RW02-RESEAU-01",
+      actions: [
+        { designation: "Remplacer 2 prises murales O₂ Pédiatrie", description: "Remplacement prises AFNOR O₂ défectueuses, test étanchéité savonnage", priorite: "HAUTE", coutEstime: 130, responsable: "RWANGWA Bosco" },
+        { designation: "Remplacer détendeur mural Médecine Interne", description: "Remplacement détendeur grippé 0-15 L/min", priorite: "NORMALE", coutEstime: 120, responsable: "RWANGWA Bosco" },
+      ],
+    },
+    {
+      equipCode: "PSA-RW03-GEN-01",
+      actions: [
+        { designation: "Remplacer électrovanne colonne B", description: "Remplacement électrovanne ASCO SCG353A047 bloquée, test cycle PSA complet, vérification pureté O₂ > 93%", priorite: "CRITIQUE", coutEstime: 890, responsable: "HAKITIMANA Fabrice" },
+        { designation: "Remplacer membranes vannes (préventif)", description: "Remplacement préventif membranes sur les autres vannes pour éviter récidive", priorite: "NORMALE", coutEstime: 290, responsable: "RWANYIRU Jose" },
+      ],
+    },
+    {
+      equipCode: "PSA-RW03-ELEC-01",
+      actions: [
+        { designation: "Remplacer écran HMI Magelis", description: "Remplacement écran HMIGXU3512, transfert configuration, test affichage", priorite: "BASSE", coutEstime: 680, responsable: "HAKITIMANA Fabrice" },
+      ],
+    },
+  ];
+
+  let totalActions = 0;
+  const allEquipments = await prisma.psaEquipment.findMany();
+
+  for (const ad of actionsData) {
+    const equip = allEquipments.find((e) => e.code === ad.equipCode);
+    if (!equip) continue;
+    for (const a of ad.actions) {
+      await prisma.psaAction.create({
+        data: {
+          equipementId: equip.id,
+          designation: a.designation,
+          description: a.description,
+          priorite: a.priorite as "CRITIQUE" | "HAUTE" | "NORMALE" | "BASSE",
+          statut: "A_FAIRE",
+          coutEstime: a.coutEstime,
+          responsable: a.responsable,
+        },
+      });
+      totalActions++;
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     summary: {
@@ -891,6 +965,7 @@ export async function POST() {
       equipements: totalEquip,
       maintenances: totalMaint,
       piecesDetachees: totalPiece,
+      actions: totalActions,
     },
     sites: sites.map((s) => ({ id: s.id, code: s.code, nom: s.nom })),
   });
