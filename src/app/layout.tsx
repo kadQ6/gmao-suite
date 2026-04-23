@@ -22,16 +22,25 @@ export const metadata: Metadata = {
     template: "%s | K'BIO",
   },
   description:
-    "Cabinet de conseil en ingenierie biomedicale et architecture hospitaliere. Audits, AMO et pilotage de projets pour etablissements de sante en France et a l'international.",
+    "Cabinet de conseil en ingénierie biomédicale et architecture hospitalière. Audits, AMO et pilotage de projets pour établissements de santé en France et à l'international.",
   metadataBase: new URL("https://kbio-conseil.com"),
+  icons: {
+    icon: [
+      { url: "/brand/icon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/brand/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: [{ url: "/brand/icon-180.png", sizes: "180x180", type: "image/png" }],
+    shortcut: "/brand/icon-32.png",
+  },
   openGraph: {
     title: "K'BIO",
     description:
-      "Ingenierie biomedicale et architecture hospitaliere. Audits, AMO et pilotage de projets.",
+      "Ingénierie biomédicale et architecture hospitalière. Audits, AMO et pilotage de projets.",
     url: "https://kbio-conseil.com",
     siteName: "K'BIO",
     locale: "fr_FR",
     type: "website",
+    images: [{ url: "/brand/logo-kbio.png", width: 1200, height: 630 }],
   },
 };
 
