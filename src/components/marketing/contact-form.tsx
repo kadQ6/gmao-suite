@@ -41,13 +41,7 @@ const team = [
     name: "Kader OMAR",
     role: "Fondateur — Ingénieur biomédical",
     initials: "KO",
-    linkedin: "https://www.linkedin.com/in/kader-omar",
-  },
-  {
-    name: "Dagmo MAHDI",
-    role: "Ingénieure biomédicale",
-    initials: "DM",
-    linkedin: null as string | null,
+    linkedin: "https://www.linkedin.com/in/kader-omar-95787458/",
   },
 ];
 
