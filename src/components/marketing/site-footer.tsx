@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 function IconLinkedIn() {
   return (
@@ -16,28 +17,92 @@ function IconFacebook() {
   );
 }
 
+const nav = [
+  {
+    label: "Explorer",
+    links: [
+      { href: "/", label: "Accueil" },
+      { href: "/references", label: "Nos missions" },
+      { href: "/services", label: "Nos activités" },
+      { href: "/actualites", label: "Actualités" },
+      { href: "/a-propos", label: "À propos" },
+    ],
+  },
+  {
+    label: "Missions",
+    links: [
+      { href: "/references#france", label: "Projets France" },
+      { href: "/references#international", label: "Projets internationaux" },
+      { href: "/services#conseil-biomedical", label: "Ingénierie biomédicale" },
+      { href: "/services#architecture", label: "Architecture hospitalière" },
+    ],
+  },
+];
+
 export function SiteFooter() {
   return (
-    <footer className="bg-gradient-to-b from-[#02294d] to-[#001a33] text-slate-200">
-      <div className="mx-auto max-w-6xl px-4 py-14 lg:px-6">
-        <div className="grid gap-10 lg:grid-cols-[1.4fr,1fr,1fr,1fr]">
+    <footer className="relative overflow-hidden bg-[#011e38]">
+
+      {/* Subtle grid overlay */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage:
+            "linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)",
+          backgroundSize: "48px 48px",
+        }}
+      />
+
+      {/* Top CTA band */}
+      <div className="relative border-b border-white/8">
+        <div className="mx-auto max-w-6xl px-4 py-12 lg:px-6">
+          <div className="flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-kbio-teal-light">
+                Parlons de votre projet
+              </p>
+              <h2 className="mt-2 text-2xl font-bold text-white">
+                Un projet hospitalier ? Contactez-nous.
+              </h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Audit, AMO, programmation — nous répondons sous 24 h.
+              </p>
+            </div>
+            <Link
+              href="/contact"
+              className="shrink-0 rounded-full bg-kbio-teal px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-kbio-teal/20 transition hover:bg-[#0ea5c9] hover:shadow-kbio-teal/30"
+            >
+              Nous écrire →
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Main grid */}
+      <div className="relative mx-auto max-w-6xl px-4 py-14 lg:px-6">
+        <div className="grid gap-12 lg:grid-cols-[2fr,1fr,1fr,1.2fr]">
 
           {/* Brand */}
-          <div>
-            <span className="font-display text-2xl font-bold tracking-tight text-white">
-              K&apos;BIO
-            </span>
-            <p className="mt-4 max-w-sm text-sm leading-relaxed text-slate-300">
-              Cabinet de conseil en ingénierie biomédicale et architecture hospitalière.
-              Accompagnement des établissements de santé, ministères et bailleurs.
+          <div className="flex flex-col gap-6">
+            <Image
+              src="/brand/logo-kbio.png"
+              alt="K'BIO"
+              width={120}
+              height={40}
+              style={{ height: "40px", width: "auto" }}
+              className="brightness-0 invert"
+            />
+            <p className="max-w-xs text-sm leading-relaxed text-slate-400">
+              Cabinet de conseil indépendant spécialisé en ingénierie biomédicale
+              et architecture hospitalière, actif en France et à l&apos;international.
             </p>
-            <div className="mt-6 flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <a
                 href="https://www.linkedin.com/company/kbio-conseil"
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="LinkedIn K'BIO"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/5 text-slate-300 transition hover:border-kbio-teal hover:bg-kbio-teal hover:text-white"
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-slate-400 ring-1 ring-white/10 transition hover:bg-[#0077b5] hover:text-white hover:ring-[#0077b5]"
               >
                 <IconLinkedIn />
               </a>
@@ -46,109 +111,90 @@ export function SiteFooter() {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="Facebook K'BIO"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/5 text-slate-300 transition hover:border-blue-500 hover:bg-blue-600 hover:text-white"
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 text-slate-400 ring-1 ring-white/10 transition hover:bg-[#1877f2] hover:text-white hover:ring-[#1877f2]"
               >
                 <IconFacebook />
               </a>
             </div>
           </div>
 
-          {/* Missions + Activités */}
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-kbio-teal-light">
-              Nos missions
-            </p>
-            <ul className="mt-4 space-y-2 text-sm">
-              <li>
-                <Link href="/references#france" className="text-slate-300 transition hover:text-white">
-                  Projets France
-                </Link>
-              </li>
-              <li>
-                <Link href="/references#international" className="text-slate-300 transition hover:text-white">
-                  Projets internationaux
-                </Link>
-              </li>
-            </ul>
-            <p className="mt-7 text-xs font-semibold uppercase tracking-[0.2em] text-kbio-teal-light">
-              Nos activités
-            </p>
-            <ul className="mt-4 space-y-2 text-sm">
-              <li>
-                <Link href="/services#conseil-biomedical" className="text-slate-300 transition hover:text-white">
-                  Ingénierie biomédicale
-                </Link>
-              </li>
-              <li>
-                <Link href="/services#architecture" className="text-slate-300 transition hover:text-white">
-                  Architecture hospitalière
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Navigation */}
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-kbio-teal-light">
-              Navigation
-            </p>
-            <ul className="mt-4 space-y-2 text-sm">
-              <li>
-                <Link href="/" className="text-slate-300 transition hover:text-white">
-                  Accueil
-                </Link>
-              </li>
-              <li>
-                <Link href="/references" className="text-slate-300 transition hover:text-white">
-                  Nos missions
-                </Link>
-              </li>
-              <li>
-                <Link href="/services" className="text-slate-300 transition hover:text-white">
-                  Nos activités
-                </Link>
-              </li>
-              <li>
-                <Link href="/actualites" className="text-slate-300 transition hover:text-white">
-                  Actualités
-                </Link>
-              </li>
-              <li>
-                <Link href="/contact" className="text-slate-300 transition hover:text-white">
-                  Contact
-                </Link>
-              </li>
-            </ul>
-          </div>
+          {/* Nav columns */}
+          {nav.map((col) => (
+            <div key={col.label}>
+              <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.18em] text-kbio-teal">
+                {col.label}
+              </p>
+              <ul className="space-y-2.5">
+                {col.links.map((link) => (
+                  <li key={link.href}>
+                    <Link
+                      href={link.href}
+                      className="group flex items-center gap-1.5 text-sm text-slate-400 transition hover:text-white"
+                    >
+                      <span className="h-px w-3 bg-white/20 transition group-hover:w-4 group-hover:bg-kbio-teal" />
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
 
           {/* Contact */}
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-kbio-teal-light">
+            <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.18em] text-kbio-teal">
               Contact
             </p>
-            <ul className="mt-4 space-y-3 text-sm text-slate-300">
+            <ul className="space-y-3 text-sm">
               <li>
-                <a href="mailto:contact@kbio-conseil.com" className="transition hover:text-white">
+                <a
+                  href="mailto:contact@kbio-conseil.com"
+                  className="flex items-center gap-2 text-slate-300 transition hover:text-white"
+                >
+                  <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0 text-kbio-teal/60">
+                    <path d="M3 4a2 2 0 00-2 2v.01L10 11l9-4.99V6a2 2 0 00-2-2H3zm16 3.384-9 4.99-9-4.99V14a2 2 0 002 2h14a2 2 0 002-2V7.384z" />
+                  </svg>
                   contact@kbio-conseil.com
                 </a>
               </li>
               <li>
-                <a href="tel:+33769123558" className="transition hover:text-white">
+                <a
+                  href="tel:+33769123558"
+                  className="flex items-center gap-2 text-slate-300 transition hover:text-white"
+                >
+                  <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0 text-kbio-teal/60">
+                    <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
+                  </svg>
                   +33 7 69 12 35 58
                 </a>
               </li>
-              <li className="pt-1 leading-relaxed text-slate-400">
-                114 rue du 1er mai<br />
-                01480 Jassans-Riottier
+              <li className="flex items-start gap-2 text-slate-400">
+                <svg viewBox="0 0 20 20" fill="currentColor" className="mt-0.5 h-4 w-4 shrink-0 text-kbio-teal/60">
+                  <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                </svg>
+                <span className="leading-relaxed">
+                  114 rue du 1er mai<br />
+                  01480 Jassans-Riottier<br />
+                  <span className="mt-0.5 inline-block text-xs text-slate-500">France · Djibouti</span>
+                </span>
               </li>
-              <li className="text-slate-400">France &middot; Djibouti</li>
             </ul>
           </div>
         </div>
+      </div>
 
-        <div className="mt-12 flex flex-col items-start justify-between gap-3 border-t border-white/10 pt-6 text-xs text-slate-400 sm:flex-row sm:items-center">
-          <p>&copy; {new Date().getFullYear()} K&apos;BIO sas. Tous droits réservés.</p>
-          <p>114 rue du 1er mai, 01480 Jassans-Riottier</p>
+      {/* Bottom bar */}
+      <div className="relative border-t border-white/8">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 py-5 text-xs text-slate-500 sm:flex-row lg:px-6">
+          <p>&copy; {new Date().getFullYear()} K&apos;BIO sas — Tous droits réservés.</p>
+          <div className="flex items-center gap-4">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              Site opérationnel
+            </span>
+            <span className="text-slate-600">·</span>
+            <span>kbio-conseil.com</span>
+          </div>
         </div>
       </div>
     </footer>
