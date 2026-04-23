@@ -72,8 +72,8 @@ export default function MarketingHomePage() {
                     loading="lazy"
                     className="h-full w-full object-cover"
                   />
-                  <div className="absolute inset-0 flex items-end bg-kbio-navy/65 p-6">
-                    <h3 className="font-display text-2xl font-bold text-white leading-tight">
+                  <div className="absolute inset-0 flex items-end bg-gradient-to-t from-kbio-navy/80 via-kbio-navy/20 to-transparent p-6">
+                    <h3 className="font-display text-2xl font-bold text-white leading-tight drop-shadow">
                       {a.title}
                     </h3>
                   </div>
