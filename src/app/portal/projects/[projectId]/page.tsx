@@ -44,10 +44,10 @@ export default async function ProjectOverviewPage({ params, searchParams }: Prop
   const tasks = project.tasks;
   const stats = {
     tasks: tasks.length,
-    todo: tasks.filter((t) => t.status === "TODO").length,
-    inProgress: tasks.filter((t) => t.status === "IN_PROGRESS").length,
-    done: tasks.filter((t) => t.status === "DONE").length,
-    blocked: tasks.filter((t) => t.status === "BLOCKED").length,
+    todo: tasks.filter((t: { status: string }) => t.status === "TODO").length,
+    inProgress: tasks.filter((t: { status: string }) => t.status === "IN_PROGRESS").length,
+    done: tasks.filter((t: { status: string }) => t.status === "DONE").length,
+    blocked: tasks.filter((t: { status: string }) => t.status === "BLOCKED").length,
   };
 
   const clientLabel = project.clients[0]?.client.name ?? "Client non renseigne";

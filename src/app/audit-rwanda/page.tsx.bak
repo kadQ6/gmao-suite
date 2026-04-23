@@ -1,0 +1,1790 @@
+"use client";
+
+import { useState, useEffect, useMemo } from "react";
+
+/* ── Types ── */
+type View = "DASHBOARD" | "BYUMBA" | "CHUK" | "KAGBAYI" | "PLAN";
+type SiteKey = "BYUMBA" | "CHUK" | "KAGBAYI";
+type Statut = "Fonctionnel" | "Hors service" | "En attente" | "Inutilisé";
+type PanelTab = "details" | "historique" | "pieces" | "kits";
+type SiteSubTab = "equipements" | "pieces" | "kits";
+
+interface HistoriqueEntry {
+  id: string;
+  date: string;
+  type: "PV préventif" | "PV correctif" | "Kit maintenance" | "Pièce remplacée" | "PV installation";
+  description: string;
+  technicien: string;
+  pieces: string[];
+}
+
+interface Piece {
+  id: string;
+  reference: string;
+  designation: string;
+  qte: number;
+  prixUnit: number;
+  urgence: "critique" | "normale" | "basse";
+  fournisseur?: string;
+}
+
+interface Kit {
+  id: string;
+  reference: string;
+  designation: string;
+  contenu: string;
+  qte: number;
+  prixUnit: number;
+  periodicite: "Annuel" | "Semestriel" | "Biennal" | "Triennal" | "Sur demande";
+  fournisseur?: string;
+  dernierUtilise?: string;
+}
+
+interface DM {
+  id: string;
+  modele: string;
+  marque?: string;
+  serie: string;
+  statut: Statut;
+  pms: string;
+  actions: number;
+  classe?: string;
+  service?: string;
+  localisation?: string;
+  dateInstall?: string;
+  fournisseur?: string;
+  historique: HistoriqueEntry[];
+  pieces: Piece[];
+  kits: Kit[];
+}
+
+interface GNode { id: string; label: string; sublabel: string; x: number; y: number; color: string; r: number; icon?: "lightning" | "arrow-up" | "snowflake"; }
+interface GEdge { from: string; to: string; label?: string; electric?: boolean; }
+
+interface SiteData {
+  titre: string;
+  maj: string;
+  dms: DM[];
+  nodes: GNode[];
+  edges: GEdge[];
+}
+
+/* ── Helpers ── */
+function uid() { return Math.random().toString(36).slice(2, 10); }
+
+function statutStyle(s: Statut) {
+  if (s === "Fonctionnel") return { bg: "#dcfce7", text: "#15803d", border: "#bbf7d0", dot: "#22c55e" };
+  if (s === "Hors service") return { bg: "#fee2e2", text: "#dc2626", border: "#fecaca", dot: "#ef4444" };
+  if (s === "En attente") return { bg: "#fef3c7", text: "#d97706", border: "#fde68a", dot: "#f59e0b" };
+  return { bg: "#f1f5f9", text: "#64748b", border: "#e2e8f0", dot: "#94a3b8" };
+}
+
+function statutToNodeColor(s: Statut): string {
+  if (s === "Fonctionnel") return "#22c55e";
+  if (s === "Hors service") return "#ef4444";
+  if (s === "En attente") return "#f59e0b";
+  return "#94a3b8";
+}
+
+function urgenceStyle(u: Piece["urgence"]) {
+  if (u === "critique") return { bg: "#fee2e2", text: "#dc2626", border: "#fecaca" };
+  if (u === "normale") return { bg: "#fef3c7", text: "#d97706", border: "#fde68a" };
+  return { bg: "#f0f9ff", text: "#0284c7", border: "#bae6fd" };
+}
+
+function fmtEur(n: number) {
+  return n.toLocaleString("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + " \u20ac";
+}
+
+function totalPieces(dms: DM[]) {
+  return dms.reduce((acc, dm) => acc + dm.pieces.reduce((a, p) => a + p.qte * p.prixUnit, 0), 0);
+}
+
+function totalKits(dms: DM[]) {
+  return dms.reduce((acc, dm) => acc + (dm.kits ?? []).reduce((a, k) => a + k.qte * k.prixUnit, 0), 0);
+}
+
+function periodStyle(p: Kit["periodicite"]) {
+  if (p === "Annuel") return { bg: "#dcfce7", text: "#15803d", border: "#bbf7d0" };
+  if (p === "Semestriel") return { bg: "#dbeafe", text: "#1d4ed8", border: "#bfdbfe" };
+  if (p === "Biennal") return { bg: "#fef3c7", text: "#d97706", border: "#fde68a" };
+  if (p === "Triennal") return { bg: "#fce7f3", text: "#be185d", border: "#fbcfe8" };
+  return { bg: "#f1f5f9", text: "#64748b", border: "#e2e8f0" };
+}
+
+const SITE_KEYS: SiteKey[] = ["BYUMBA", "CHUK", "KAGBAYI"];
+const URGENCE_ORDER: Record<Piece["urgence"], number> = { critique: 0, normale: 1, basse: 2 };
+const STATUTS: Statut[] = ["Fonctionnel", "Hors service", "En attente", "Inutilisé"];
+const CLASSES = ["I", "IIa", "IIb", "III"];
+const HISTO_TYPES: HistoriqueEntry["type"][] = ["PV préventif", "PV correctif", "Kit maintenance", "Pièce remplacée", "PV installation"];
+const KIT_PERIODICITE: Kit["periodicite"][] = ["Annuel", "Semestriel", "Biennal", "Triennal", "Sur demande"];
+const inputCls = "w-full rounded border border-slate-200 px-2 py-1.5 text-xs focus:outline-none focus:border-blue-400";
+const labelCls = "block text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-0.5";
+const btnSm = "rounded px-2.5 py-1 text-xs font-semibold";
+
+/* ── Default Dataset ── */
+const DEFAULT_DATA: Record<SiteKey, SiteData> = {
+  BYUMBA: {
+    titre: "BYUMBA \u2014 Audit maintenance biom\u00e9dicale",
+    maj: "11/04/2026 10:15:46",
+    dms: [
+      { id: "hp-i80", modele: "HP I80 compresseur", serie: "20221118221F04", statut: "Hors service", pms: "2026-05-10", actions: 3, classe: "IIb", service: "Laboratoire", localisation: "B\u00e2timent A", dateInstall: "2022-11-18", fournisseur: "HP Medical", historique: [{ id: "h1", date: "2025-03-10", type: "PV pr\u00e9ventif", description: "R\u00e9vision g\u00e9n\u00e9rale annuelle, remplacement filtre air", technicien: "J. Nkusi", pieces: ["Filtre air FA-001"] }, { id: "h2", date: "2025-08-22", type: "PV correctif", description: "Panne soupape haute pression \u2014 \u00e9quipement mis en arr\u00eat", technicien: "A. Uwimana", pieces: [] }, { id: "h3", date: "2026-01-15", type: "Pi\u00e8ce remplac\u00e9e", description: "Tentative remplacement joint torique \u2014 panne persistante", technicien: "J. Nkusi", pieces: ["Joint torique JO-002"] }], pieces: [{ id: "p1", reference: "FHP-001", designation: "Filtre haute pression HP I80", qte: 1, prixUnit: 85, urgence: "critique", fournisseur: "HP Medical" }, { id: "p2", reference: "JO-002", designation: "Joint torique compresseur", qte: 2, prixUnit: 12, urgence: "normale", fournisseur: "Techni-Gaz" }, { id: "p3", reference: "SV-003", designation: "Soupape de s\u00e9curit\u00e9 HP", qte: 1, prixUnit: 145, urgence: "critique", fournisseur: "HP Medical" }], kits: [] },
+      { id: "edc", modele: "EDC", serie: "\u2014", statut: "Fonctionnel", pms: "2026-07-15", actions: 0, classe: "IIa", service: "St\u00e9rilisation", localisation: "B\u00e2timent B", dateInstall: "2021-06-01", fournisseur: "Steris", historique: [{ id: "h1", date: "2025-07-01", type: "PV pr\u00e9ventif", description: "Entretien p\u00e9riodique, v\u00e9rification circuits", technicien: "A. Uwimana", pieces: [] }, { id: "h2", date: "2026-01-20", type: "Kit maintenance", description: "Kit maintenance annuel appliqu\u00e9", technicien: "J. Nkusi", pieces: ["Kit M-001"] }], pieces: [], kits: [] },
+      { id: "vl5590", modele: "VL5590-2RN-P", serie: "109713", statut: "Fonctionnel", pms: "2026-05-10", actions: 0, classe: "IIa", service: "Urgences", localisation: "B\u00e2timent C", dateInstall: "2022-03-15", historique: [{ id: "h1", date: "2025-05-10", type: "PV pr\u00e9ventif", description: "V\u00e9rification pression, test s\u00e9curit\u00e9s", technicien: "J. Nkusi", pieces: [] }, { id: "h2", date: "2025-11-12", type: "PV pr\u00e9ventif", description: "Contr\u00f4le semestiel, pas d\u2019anomalie", technicien: "A. Uwimana", pieces: [] }], pieces: [], kits: [] },
+      { id: "atlas-sf4", modele: "Compresseur Atlas Copco SF4", serie: "ATC-SF4-0887", statut: "En attente", pms: "2026-06-01", actions: 2, classe: "IIb", service: "Bloc op\u00e9ratoire", localisation: "Local technique", dateInstall: "2020-09-10", fournisseur: "Atlas Copco", historique: [{ id: "h1", date: "2024-09-10", type: "PV pr\u00e9ventif", description: "R\u00e9vision 4 ans \u2014 courroie us\u00e9e d\u00e9tect\u00e9e", technicien: "M. Bizimana", pieces: [] }, { id: "h2", date: "2025-02-14", type: "PV correctif", description: "Arr\u00eat sur d\u00e9faut thermique \u2014 filtre colmat\u00e9", technicien: "J. Nkusi", pieces: [] }, { id: "h3", date: "2025-06-30", type: "PV correctif", description: "En attente pi\u00e8ces \u2014 compresseur hors service partiel", technicien: "M. Bizimana", pieces: [] }], pieces: [{ id: "p1", reference: "CC-101", designation: "Courroie trap\u00e9zo\u00efdale SF4", qte: 2, prixUnit: 38, urgence: "critique", fournisseur: "Atlas Copco" }, { id: "p2", reference: "FA-102", designation: "Filtre \u00e0 air SF4", qte: 1, prixUnit: 65, urgence: "normale", fournisseur: "Atlas Copco" }], kits: [] },
+      { id: "sd4", modele: "S\u00e9cheur r\u00e9frig\u00e9rant SD4", serie: "SDR-2021-044", statut: "Fonctionnel", pms: "2026-08-20", actions: 0, classe: "I", service: "Bloc op\u00e9ratoire", localisation: "Local technique", dateInstall: "2021-09-10", historique: [{ id: "h1", date: "2025-08-20", type: "PV pr\u00e9ventif", description: "Entretien annuel condenseur et filtre d\u00e9shydrateur", technicien: "J. Nkusi", pieces: [] }], pieces: [], kits: [] },
+      { id: "cgm-byu", modele: "Centrale gaz m\u00e9dicaux", serie: "CGM-BYU-2020", statut: "Fonctionnel", pms: "2026-04-30", actions: 0, classe: "IIb", service: "Central technique", localisation: "Local gaz", dateInstall: "2020-05-01", historique: [{ id: "h1", date: "2025-04-28", type: "PV pr\u00e9ventif", description: "Inspection annuelle, contr\u00f4le alarmes", technicien: "A. Uwimana", pieces: [] }, { id: "h2", date: "2025-10-10", type: "PV pr\u00e9ventif", description: "Contr\u00f4le semestriel pression r\u00e9seau OK", technicien: "M. Bizimana", pieces: [] }], pieces: [], kits: [] },
+      { id: "mano-o2", modele: "Manod\u00e9tendeur O\u2082 x2", serie: "MDO2-BYU-01/02", statut: "Fonctionnel", pms: "2026-06-15", actions: 0, classe: "IIa", service: "Central technique", localisation: "Local gaz", dateInstall: "2020-05-01", historique: [{ id: "h1", date: "2025-06-15", type: "PV pr\u00e9ventif", description: "Contr\u00f4le \u00e9tanch\u00e9it\u00e9 et pression sortie", technicien: "J. Nkusi", pieces: [] }], pieces: [], kits: [] },
+      { id: "rampe-n2o", modele: "Rampe bouteilles N\u2082O", serie: "RN2O-BYU-2020", statut: "Inutilis\u00e9", pms: "\u2014", actions: 0, classe: "IIb", service: "Anesth\u00e9sie", localisation: "Local gaz", dateInstall: "2020-05-01", historique: [{ id: "h1", date: "2022-03-01", type: "PV installation", description: "Installation initiale \u2014 N\u2082O non utilis\u00e9 au bloc, rampe consign\u00e9e", technicien: "A. Uwimana", pieces: [] }], pieces: [], kits: [] },
+      { id: "groupe-elec", modele: "Groupe \u00e9lectrog\u00e8ne secours", serie: "GEN-BYU-2019", statut: "Fonctionnel", pms: "2026-05-01", actions: 0, classe: "I", service: "\u00c9lectricit\u00e9", localisation: "Cour technique", dateInstall: "2019-11-01", historique: [{ id: "h1", date: "2025-05-01", type: "PV pr\u00e9ventif", description: "R\u00e9vision annuelle huile moteur et filtre \u2014 test OK 4h", technicien: "M. Bizimana", pieces: ["Filtre huile FH-001", "Huile moteur 15W40"] }, { id: "h2", date: "2025-11-01", type: "PV pr\u00e9ventif", description: "Test mensuel 30 min \u2014 d\u00e9marrage OK", technicien: "J. Nkusi", pieces: [] }], pieces: [], kits: [] },
+    ],
+    nodes: [
+      { id: "edc", label: "", sublabel: "EDC", x: 55, y: 200, color: "#22c55e", r: 22, icon: "lightning" },
+      { id: "atlas-sf4", label: "C", sublabel: "Comp 1", x: 145, y: 130, color: "#f59e0b", r: 22 },
+      { id: "hp-i80", label: "C", sublabel: "Comp 2", x: 145, y: 275, color: "#ef4444", r: 22 },
+      { id: "sd4", label: "", sublabel: "Dry 1", x: 232, y: 108, color: "#22c55e", r: 22, icon: "snowflake" },
+      { id: "dry2-byu", label: "", sublabel: "Dry 2", x: 232, y: 290, color: "#94a3b8", r: 22, icon: "snowflake" },
+      { id: "cu1-byu", label: "Cu1", sublabel: "Cu1", x: 315, y: 88, color: "#38bdf8", r: 20 },
+      { id: "cu2-byu", label: "Cu2", sublabel: "Cu2", x: 315, y: 310, color: "#38bdf8", r: 20 },
+      { id: "vl5590", label: "O\u2082", sublabel: "Rx 700 M", x: 430, y: 195, color: "#22c55e", r: 30 },
+      { id: "rx700s-byu", label: "O\u2082", sublabel: "Rx 700 Slave", x: 430, y: 315, color: "#94a3b8", r: 26 },
+      { id: "cu3-byu", label: "Cu3", sublabel: "Cu3", x: 540, y: 108, color: "#38bdf8", r: 20 },
+      { id: "hp1-byu", label: "", sublabel: "HP 1", x: 630, y: 42, color: "#22c55e", r: 22, icon: "arrow-up" },
+      { id: "hp2-byu", label: "", sublabel: "HP 2", x: 630, y: 130, color: "#ef4444", r: 22, icon: "arrow-up" },
+      { id: "p1-byu", label: "1", sublabel: "1", x: 630, y: 200, color: "#38bdf8", r: 18 },
+      { id: "p2-byu", label: "2", sublabel: "2", x: 630, y: 248, color: "#38bdf8", r: 18 },
+      { id: "p3-byu", label: "3", sublabel: "3", x: 630, y: 305, color: "#38bdf8", r: 18 },
+      { id: "p4-byu", label: "4", sublabel: "4", x: 630, y: 358, color: "#38bdf8", r: 18 },
+    ],
+    edges: [
+      { from: "edc", to: "atlas-sf4", label: "230V~", electric: true },
+      { from: "edc", to: "hp-i80", label: "230V~", electric: true },
+      { from: "edc", to: "sd4", label: "400V~", electric: true },
+      { from: "edc", to: "dry2-byu", label: "230V~", electric: true },
+      { from: "edc", to: "cu1-byu", label: "400V~", electric: true },
+      { from: "edc", to: "vl5590", label: "230V~", electric: true },
+      { from: "atlas-sf4", to: "sd4", label: "Air" },
+      { from: "hp-i80", to: "dry2-byu", label: "Air" },
+      { from: "sd4", to: "cu1-byu", label: "Air-sec" },
+      { from: "dry2-byu", to: "cu2-byu", label: "Air-sec" },
+      { from: "cu1-byu", to: "vl5590", label: "Air" },
+      { from: "cu2-byu", to: "vl5590", label: "Air" },
+      { from: "vl5590", to: "cu3-byu", label: "O\u2082" },
+      { from: "vl5590", to: "rx700s-byu", label: "Sync M-S" },
+      { from: "vl5590", to: "p1-byu", label: "Process" },
+      { from: "vl5590", to: "p2-byu", label: "Process" },
+      { from: "cu3-byu", to: "hp1-byu", label: "O\u2082-BP" },
+      { from: "cu3-byu", to: "hp2-byu", label: "O\u2082-BP" },
+      { from: "rx700s-byu", to: "p3-byu", label: "Process" },
+      { from: "rx700s-byu", to: "p4-byu", label: "Process" },
+    ],
+  },
+  CHUK: {
+    titre: "CHUK \u2014 Audit maintenance biom\u00e9dicale",
+    maj: "11/04/2026 09:30:12",
+    dms: [
+      { id: "servo", modele: "Maquet Servo-i", serie: "SRV-20221103", statut: "Fonctionnel", pms: "2026-06-01", actions: 0, classe: "IIb", service: "R\u00e9animation", localisation: "Bloc B", dateInstall: "2022-11-03", fournisseur: "Getinge", historique: [{ id: "h1", date: "2025-06-01", type: "PV pr\u00e9ventif", description: "Maintenance pr\u00e9ventive annuelle \u2014 remplacement filtre patient", technicien: "P. Habimana", pieces: ["Filtre patient FP-001"] }, { id: "h2", date: "2025-12-10", type: "PV pr\u00e9ventif", description: "Contr\u00f4le semestriel \u2014 calibration capteurs OK", technicien: "C. Mukiza", pieces: [] }], pieces: [], kits: [] },
+      { id: "sono", modele: "SonoSite Edge II", serie: "SNST-20190452", statut: "En attente", pms: "2026-05-20", actions: 1, classe: "IIa", service: "Urgences", localisation: "Bloc A", dateInstall: "2019-04-22", fournisseur: "SonoSite", historique: [{ id: "h1", date: "2025-04-10", type: "PV pr\u00e9ventif", description: "Entretien annuel \u2014 sonde L38 d\u00e9fectueuse signal\u00e9e", technicien: "P. Habimana", pieces: [] }, { id: "h2", date: "2025-09-15", type: "PV correctif", description: "Tentative r\u00e9paration sonde \u2014 en attente pi\u00e8ce fournisseur", technicien: "C. Mukiza", pieces: [] }], pieces: [{ id: "p1", reference: "SON-L38", designation: "Sonde lin\u00e9aire L38 SonoSite", qte: 1, prixUnit: 1850, urgence: "critique", fournisseur: "SonoSite" }, { id: "p2", reference: "SON-BAT", designation: "Batterie Edge II", qte: 1, prixUnit: 120, urgence: "normale", fournisseur: "SonoSite" }], kits: [] },
+      { id: "auto", modele: "Autoclave SES 2000", serie: "AC-20200876", statut: "Fonctionnel", pms: "2026-04-30", actions: 0, classe: "IIb", service: "St\u00e9rilisation", localisation: "Bloc C", dateInstall: "2020-03-10", fournisseur: "Getinge", historique: [{ id: "h1", date: "2025-03-20", type: "PV pr\u00e9ventif", description: "Remplacement joint porte et \u00e9l\u00e9ments chauffants", technicien: "P. Habimana", pieces: ["Joint porte JP-001"] }, { id: "h2", date: "2025-09-10", type: "Kit maintenance", description: "Kit entretien annuel complet appliqu\u00e9", technicien: "C. Mukiza", pieces: [] }, { id: "h3", date: "2026-03-15", type: "PV pr\u00e9ventif", description: "Test cycles st\u00e9rilisation \u2014 conformit\u00e9 OK", technicien: "P. Habimana", pieces: [] }], pieces: [], kits: [] },
+      { id: "defi", modele: "Zoll AED Plus", serie: "ZOLL-2021054", statut: "Hors service", pms: "2026-04-15", actions: 2, classe: "IIb", service: "Urgences", localisation: "Salle 4", dateInstall: "2021-01-15", fournisseur: "Zoll Medical", historique: [{ id: "h1", date: "2024-12-01", type: "PV correctif", description: "Batterie d\u00e9charg\u00e9e \u2014 \u00e9quipement hors service, alarme signal\u00e9e", technicien: "C. Mukiza", pieces: [] }, { id: "h2", date: "2025-03-18", type: "PV correctif", description: "C\u00e2ble patient d\u00e9fectueux constat\u00e9 \u2014 en attente commande", technicien: "P. Habimana", pieces: [] }], pieces: [{ id: "p1", reference: "ZBAT", designation: "Batterie Zoll AED Plus", qte: 1, prixUnit: 220, urgence: "critique", fournisseur: "Zoll Medical" }, { id: "p2", reference: "ZELEC", designation: "\u00c9lectrodes adultes Zoll", qte: 2, prixUnit: 85, urgence: "critique", fournisseur: "Zoll Medical" }, { id: "p3", reference: "ZCAB", designation: "C\u00e2ble patient Zoll", qte: 1, prixUnit: 45, urgence: "normale", fournisseur: "Zoll Medical" }], kits: [] },
+      { id: "comp-15kw", modele: "Compresseur m\u00e9dical 15kW", serie: "CMP15-CHUK-2021", statut: "En attente", pms: "2026-07-01", actions: 1, classe: "IIb", service: "Central technique", localisation: "Local compresseurs", dateInstall: "2021-07-01", historique: [{ id: "h1", date: "2025-07-01", type: "PV pr\u00e9ventif", description: "R\u00e9vision annuelle \u2014 huile moteur chang\u00e9e, filtre OK", technicien: "P. Habimana", pieces: ["Huile 15W40 5L"] }, { id: "h2", date: "2026-01-10", type: "PV correctif", description: "Vibrations anormales \u2014 roulements suspects, en attente diagnostic", technicien: "C. Mukiza", pieces: [] }], pieces: [{ id: "p1", reference: "ROUL-001", designation: "Roulements moteur 15kW", qte: 2, prixUnit: 95, urgence: "normale", fournisseur: "SKF" }], kits: [] },
+      { id: "o2-liq", modele: "Central O\u2082 liquide", serie: "O2L-CHUK-2019", statut: "Fonctionnel", pms: "2026-06-01", actions: 0, classe: "IIb", service: "Central technique", localisation: "Station oxyg\u00e8ne", dateInstall: "2019-06-01", historique: [{ id: "h1", date: "2025-06-01", type: "PV pr\u00e9ventif", description: "Contr\u00f4le niveau, test alarmes basse pression OK", technicien: "P. Habimana", pieces: [] }], pieces: [], kits: [] },
+      { id: "seche-psa", modele: "S\u00e9cheur d\u2019air PSA", serie: "PSA-CHUK-2021", statut: "Fonctionnel", pms: "2026-08-01", actions: 0, classe: "I", service: "Central technique", localisation: "Local compresseurs", dateInstall: "2021-07-01", historique: [{ id: "h1", date: "2025-08-01", type: "PV pr\u00e9ventif", description: "R\u00e9g\u00e9n\u00e9ration tamis mol\u00e9culaire v\u00e9rifi\u00e9e \u2014 OK", technicien: "C. Mukiza", pieces: [] }], pieces: [], kits: [] },
+      { id: "reg-press", modele: "R\u00e9gulateur pression", serie: "REG-CHUK-01", statut: "Fonctionnel", pms: "2026-05-15", actions: 0, classe: "IIa", service: "Central technique", localisation: "Local gaz", dateInstall: "2021-07-01", historique: [{ id: "h1", date: "2025-05-15", type: "PV pr\u00e9ventif", description: "\u00c9talonnage manom\u00e8tre et test pression sortie", technicien: "P. Habimana", pieces: [] }], pieces: [], kits: [] },
+      { id: "res-gaz", modele: "R\u00e9seau gaz bloc", serie: "RGB-CHUK-2021", statut: "Fonctionnel", pms: "2026-09-01", actions: 0, classe: "IIb", service: "Bloc op\u00e9ratoire", localisation: "Bloc A/B/C", dateInstall: "2021-07-01", historique: [{ id: "h1", date: "2025-09-01", type: "PV pr\u00e9ventif", description: "Contr\u00f4le \u00e9tanch\u00e9it\u00e9 r\u00e9seau cuivre, test d\u00e9bit OK", technicien: "C. Mukiza", pieces: [] }], pieces: [], kits: [] },
+      { id: "moniteur-x2", modele: "Moniteur multiparam\u00e8tre x2", serie: "MON-REA-01/02", statut: "Fonctionnel", pms: "2026-07-10", actions: 0, classe: "IIb", service: "R\u00e9animation", localisation: "R\u00e9animation", dateInstall: "2022-07-10", historique: [{ id: "h1", date: "2025-07-10", type: "PV pr\u00e9ventif", description: "V\u00e9rification capteurs SpO2, ECG, NIBP \u2014 calibration OK", technicien: "P. Habimana", pieces: [] }, { id: "h2", date: "2026-01-10", type: "Kit maintenance", description: "Remplacement c\u00e2bles patients et \u00e9lectrodes", technicien: "C. Mukiza", pieces: ["C\u00e2bles ECG", "Brassards NIBP"] }], pieces: [], kits: [] },
+      { id: "pompe-perf", modele: "Pompe \u00e0 perfusion", serie: "PP-REA-CHUK-03", statut: "Fonctionnel", pms: "2026-06-20", actions: 0, classe: "IIb", service: "R\u00e9animation", localisation: "R\u00e9animation", dateInstall: "2022-06-20", historique: [{ id: "h1", date: "2025-06-20", type: "PV pr\u00e9ventif", description: "Test d\u00e9bit volum\u00e9trique et alarmes occlusion OK", technicien: "P. Habimana", pieces: [] }], pieces: [], kits: [] },
+      { id: "aspir-chir", modele: "Aspirateur chirurgical", serie: "ASP-CHUKB-2022", statut: "En attente", pms: "2026-05-01", actions: 1, classe: "IIa", service: "Bloc B", localisation: "Salle op\u00e9ratoire 2", dateInstall: "2022-05-01", historique: [{ id: "h1", date: "2025-04-15", type: "PV correctif", description: "Pompe \u00e0 vide d\u00e9faillante \u2014 d\u00e9pression insuffisante", technicien: "C. Mukiza", pieces: [] }], pieces: [{ id: "p1", reference: "PV-ASP-001", designation: "Pompe \u00e0 vide aspirateur chirurgical", qte: 1, prixUnit: 280, urgence: "critique", fournisseur: "Medela" }], kits: [] },
+      { id: "scialytique", modele: "Lampe scialytique", serie: "SCI-CHUKA-2020", statut: "Fonctionnel", pms: "2026-08-15", actions: 0, classe: "I", service: "Bloc A", localisation: "Salle op\u00e9ratoire 1", dateInstall: "2020-08-15", historique: [{ id: "h1", date: "2025-08-15", type: "PV pr\u00e9ventif", description: "Nettoyage optique et v\u00e9rification articulations", technicien: "P. Habimana", pieces: [] }], pieces: [], kits: [] },
+      { id: "table-op", modele: "Table op\u00e9ratoire", serie: "TOP-CHUK-2018", statut: "Inutilis\u00e9", pms: "\u2014", actions: 0, classe: "IIb", service: "Bloc op\u00e9ratoire", localisation: "D\u00e9p\u00f4t bloc", dateInstall: "2018-01-01", historique: [{ id: "h1", date: "2023-06-01", type: "PV correctif", description: "Table retir\u00e9e du service \u2014 syst\u00e8me hydraulique HS, remplacement pr\u00e9vu", technicien: "C. Mukiza", pieces: [] }], pieces: [], kits: [] },
+    ],
+    nodes: [
+      { id: "edc-chk", label: "", sublabel: "EDC", x: 55, y: 200, color: "#22c55e", r: 22, icon: "lightning" },
+      { id: "comp-15kw", label: "C", sublabel: "Comp 1", x: 145, y: 130, color: "#f59e0b", r: 22 },
+      { id: "comp2-chk", label: "C", sublabel: "Comp 2", x: 145, y: 275, color: "#22c55e", r: 22 },
+      { id: "seche-psa", label: "", sublabel: "Dry 1", x: 232, y: 108, color: "#22c55e", r: 22, icon: "snowflake" },
+      { id: "dry2-chk", label: "", sublabel: "Dry 2", x: 232, y: 290, color: "#22c55e", r: 22, icon: "snowflake" },
+      { id: "cu1-chk", label: "Cu1", sublabel: "Cu1", x: 315, y: 88, color: "#38bdf8", r: 20 },
+      { id: "cu2-chk", label: "Cu2", sublabel: "Cu2", x: 315, y: 310, color: "#38bdf8", r: 20 },
+      { id: "o2-liq", label: "O\u2082", sublabel: "Rx 700 M", x: 430, y: 195, color: "#22c55e", r: 30 },
+      { id: "rx700s-chk", label: "O\u2082", sublabel: "Rx 700 Slave", x: 430, y: 315, color: "#94a3b8", r: 26 },
+      { id: "cu3-chk", label: "Cu3", sublabel: "Cu3", x: 540, y: 108, color: "#38bdf8", r: 20 },
+      { id: "hp1-chk", label: "", sublabel: "HP 1", x: 630, y: 42, color: "#22c55e", r: 22, icon: "arrow-up" },
+      { id: "hp2-chk", label: "", sublabel: "HP 2", x: 630, y: 130, color: "#ef4444", r: 22, icon: "arrow-up" },
+      { id: "p1-chk", label: "1", sublabel: "1", x: 630, y: 200, color: "#38bdf8", r: 18 },
+      { id: "p2-chk", label: "2", sublabel: "2", x: 630, y: 248, color: "#38bdf8", r: 18 },
+      { id: "p3-chk", label: "3", sublabel: "3", x: 630, y: 305, color: "#38bdf8", r: 18 },
+      { id: "p4-chk", label: "4", sublabel: "4", x: 630, y: 358, color: "#38bdf8", r: 18 },
+    ],
+    edges: [
+      { from: "edc-chk", to: "comp-15kw", label: "230V~", electric: true },
+      { from: "edc-chk", to: "comp2-chk", label: "230V~", electric: true },
+      { from: "edc-chk", to: "seche-psa", label: "400V~", electric: true },
+      { from: "edc-chk", to: "dry2-chk", label: "230V~", electric: true },
+      { from: "edc-chk", to: "cu1-chk", label: "400V~", electric: true },
+      { from: "edc-chk", to: "o2-liq", label: "230V~", electric: true },
+      { from: "comp-15kw", to: "seche-psa", label: "Air" },
+      { from: "comp2-chk", to: "dry2-chk", label: "Air" },
+      { from: "seche-psa", to: "cu1-chk", label: "Air-sec" },
+      { from: "dry2-chk", to: "cu2-chk", label: "Air-sec" },
+      { from: "cu1-chk", to: "o2-liq", label: "Air" },
+      { from: "cu2-chk", to: "o2-liq", label: "Air" },
+      { from: "o2-liq", to: "cu3-chk", label: "O\u2082" },
+      { from: "o2-liq", to: "rx700s-chk", label: "Sync M-S" },
+      { from: "o2-liq", to: "p1-chk", label: "Process" },
+      { from: "o2-liq", to: "p2-chk", label: "Process" },
+      { from: "cu3-chk", to: "hp1-chk", label: "O\u2082-BP" },
+      { from: "cu3-chk", to: "hp2-chk", label: "O\u2082-BP" },
+      { from: "rx700s-chk", to: "p3-chk", label: "Process" },
+      { from: "rx700s-chk", to: "p4-chk", label: "Process" },
+    ],
+  },
+  KAGBAYI: {
+    titre: "KAGBAYI \u2014 Audit maintenance biom\u00e9dicale",
+    maj: "10/04/2026 14:22:05",
+    dms: [
+      { id: "dc70", modele: "Mindray DC-70", serie: "DC70-2022031", statut: "Fonctionnel", pms: "2026-08-15", actions: 0, classe: "IIa", service: "Radiologie", localisation: "Bloc Imagerie", dateInstall: "2022-03-10", fournisseur: "Mindray", historique: [{ id: "h1", date: "2025-03-10", type: "PV pr\u00e9ventif", description: "R\u00e9vision annuelle \u2014 nettoyage transducteurs, test Doppler OK", technicien: "E. Niyonzima", pieces: [] }, { id: "h2", date: "2025-09-10", type: "PV pr\u00e9ventif", description: "Contr\u00f4le semestriel, gel conducteur renouvel\u00e9", technicien: "F. Uwineza", pieces: [] }], pieces: [], kits: [] },
+      { id: "isol", modele: "Dr\u00e4ger Isolette C2", serie: "DRG-INC-0981", statut: "Fonctionnel", pms: "2026-05-30", actions: 0, classe: "IIb", service: "N\u00e9onatologie", localisation: "Maternit\u00e9", dateInstall: "2021-05-30", fournisseur: "Dr\u00e4ger", historique: [{ id: "h1", date: "2025-05-30", type: "PV pr\u00e9ventif", description: "Calibration capteurs temp\u00e9rature/humidit\u00e9 \u2014 OK", technicien: "E. Niyonzima", pieces: [] }, { id: "h2", date: "2025-11-15", type: "Kit maintenance", description: "Kit entretien annuel Dr\u00e4ger \u2014 filtres et joints remplac\u00e9s", technicien: "F. Uwineza", pieces: ["Kit Isolette KIT-DRG-01"] }, { id: "h3", date: "2026-02-10", type: "PV pr\u00e9ventif", description: "Contr\u00f4le semestriel \u2014 bonne conformit\u00e9", technicien: "E. Niyonzima", pieces: [] }], pieces: [], kits: [] },
+      { id: "au480", modele: "Beckman AU480", serie: "BCK-AU480-112", statut: "En attente", pms: "2026-06-10", actions: 1, classe: "IIa", service: "Laboratoire", localisation: "Labo central", dateInstall: "2021-06-10", fournisseur: "Beckman Coulter", historique: [{ id: "h1", date: "2025-06-10", type: "PV pr\u00e9ventif", description: "Entretien annuel \u2014 pompe r\u00e9actif d\u00e9grad\u00e9e signal\u00e9e", technicien: "F. Uwineza", pieces: [] }, { id: "h2", date: "2025-10-20", type: "PV correctif", description: "Arr\u00eat analyseur \u2014 pompe r\u00e9actif en panne, en attente commande", technicien: "E. Niyonzima", pieces: [] }], pieces: [{ id: "p1", reference: "RPUMP", designation: "Pompe r\u00e9actif AU480", qte: 1, prixUnit: 340, urgence: "critique", fournisseur: "Beckman Coulter" }, { id: "p2", reference: "TUBE", designation: "Tubulure silicone AU480", qte: 4, prixUnit: 28, urgence: "normale", fournisseur: "Beckman Coulter" }], kits: [] },
+      { id: "comp-psa", modele: "Compresseur PSA 7.5kW", serie: "PSA-KAG-2021", statut: "Fonctionnel", pms: "2026-07-01", actions: 0, classe: "IIb", service: "Central technique", localisation: "Local technique", dateInstall: "2021-07-01", historique: [{ id: "h1", date: "2025-07-01", type: "PV pr\u00e9ventif", description: "R\u00e9vision annuelle huile, filtres \u2014 OK", technicien: "E. Niyonzima", pieces: [] }], pieces: [], kits: [] },
+      { id: "seche-double", modele: "S\u00e9cheur PSA double tour", serie: "SPDBL-KAG-2021", statut: "Fonctionnel", pms: "2026-07-01", actions: 0, classe: "I", service: "Central technique", localisation: "Local technique", dateInstall: "2021-07-01", historique: [{ id: "h1", date: "2025-07-01", type: "PV pr\u00e9ventif", description: "Contr\u00f4le r\u00e9g\u00e9n\u00e9ration double tour \u2014 OK", technicien: "F. Uwineza", pieces: [] }], pieces: [], kits: [] },
+      { id: "res-cu-o2", modele: "R\u00e9seau cuivre O\u2082", serie: "RCO2-KAG-2021", statut: "Fonctionnel", pms: "2026-09-01", actions: 0, classe: "IIb", service: "Central technique", localisation: "B\u00e2timents A/B/C", dateInstall: "2021-07-01", historique: [{ id: "h1", date: "2025-09-01", type: "PV pr\u00e9ventif", description: "Test \u00e9tanch\u00e9it\u00e9 r\u00e9seau \u2014 aucune fuite d\u00e9tect\u00e9e", technicien: "E. Niyonzima", pieces: [] }], pieces: [], kits: [] },
+      { id: "res-cu-air", modele: "R\u00e9seau cuivre Air", serie: "RCAIR-KAG-2021", statut: "Fonctionnel", pms: "2026-09-01", actions: 0, classe: "IIb", service: "Central technique", localisation: "B\u00e2timents A/B/C", dateInstall: "2021-07-01", historique: [{ id: "h1", date: "2025-09-01", type: "PV pr\u00e9ventif", description: "Test \u00e9tanch\u00e9it\u00e9 r\u00e9seau air m\u00e9dical OK", technicien: "F. Uwineza", pieces: [] }], pieces: [], kits: [] },
+      { id: "reg-o2-kag", modele: "R\u00e9gulateur de pression O\u2082", serie: "REGO2-KAG-01", statut: "Fonctionnel", pms: "2026-05-15", actions: 0, classe: "IIa", service: "Central technique", localisation: "Local gaz", dateInstall: "2021-07-01", historique: [{ id: "h1", date: "2025-05-15", type: "PV pr\u00e9ventif", description: "\u00c9talonnage et test pression sortie \u2014 4 bar OK", technicien: "E. Niyonzima", pieces: [] }], pieces: [], kits: [] },
+      { id: "col-bloc", modele: "Colonne de distribution bloc", serie: "CDB-KAG-2021", statut: "Fonctionnel", pms: "2026-08-01", actions: 0, classe: "IIb", service: "Bloc op\u00e9ratoire", localisation: "Salle op.", dateInstall: "2021-07-01", historique: [{ id: "h1", date: "2025-08-01", type: "PV pr\u00e9ventif", description: "Contr\u00f4le prises gaz et \u00e9lectricit\u00e9 \u2014 conformes", technicien: "F. Uwineza", pieces: [] }], pieces: [], kits: [] },
+      { id: "spo2-mat", modele: "Moniteur SpO\u2082", serie: "SPO2-MAT-KAG-01", statut: "Fonctionnel", pms: "2026-06-01", actions: 0, classe: "IIb", service: "Maternit\u00e9", localisation: "Salle accouchement", dateInstall: "2022-06-01", historique: [{ id: "h1", date: "2025-06-01", type: "PV pr\u00e9ventif", description: "Test capteur SpO2 et alarmes \u2014 OK", technicien: "E. Niyonzima", pieces: [] }, { id: "h2", date: "2025-12-15", type: "Pi\u00e8ce remplac\u00e9e", description: "Remplacement sonde doigt adulte us\u00e9e", technicien: "F. Uwineza", pieces: ["Sonde SpO2 adulte"] }], pieces: [], kits: [] },
+      { id: "couveuse-port", modele: "Couveuse portable", serie: "CVP-KAG-2019", statut: "Inutilis\u00e9", pms: "\u2014", actions: 0, classe: "IIb", service: "N\u00e9onatologie", localisation: "D\u00e9p\u00f4t maternit\u00e9", dateInstall: "2019-01-01", historique: [{ id: "h1", date: "2024-01-15", type: "PV correctif", description: "Couveuse retir\u00e9e \u2014 r\u00e9sistance chauffante HS, pi\u00e8ce non disponible localement", technicien: "E. Niyonzima", pieces: [] }], pieces: [], kits: [] },
+    ],
+    nodes: [
+      { id: "edc-kag", label: "", sublabel: "EDC", x: 55, y: 200, color: "#22c55e", r: 22, icon: "lightning" },
+      { id: "comp-psa", label: "C", sublabel: "Comp 1", x: 145, y: 130, color: "#22c55e", r: 22 },
+      { id: "comp2-kag", label: "C", sublabel: "Comp 2", x: 145, y: 275, color: "#22c55e", r: 22 },
+      { id: "seche-double", label: "", sublabel: "Dry 1", x: 232, y: 108, color: "#22c55e", r: 22, icon: "snowflake" },
+      { id: "dry2-kag", label: "", sublabel: "Dry 2", x: 232, y: 290, color: "#22c55e", r: 22, icon: "snowflake" },
+      { id: "cu1-kag", label: "Cu1", sublabel: "Cu1", x: 315, y: 88, color: "#38bdf8", r: 20 },
+      { id: "cu2-kag", label: "Cu2", sublabel: "Cu2", x: 315, y: 310, color: "#38bdf8", r: 20 },
+      { id: "rx-kag", label: "O\u2082", sublabel: "Rx 700 M", x: 430, y: 195, color: "#22c55e", r: 30 },
+      { id: "rx700s-kag", label: "O\u2082", sublabel: "Rx 700 Slave", x: 430, y: 315, color: "#94a3b8", r: 26 },
+      { id: "cu3-kag", label: "Cu3", sublabel: "Cu3", x: 540, y: 108, color: "#38bdf8", r: 20 },
+      { id: "hp1-kag", label: "", sublabel: "HP 1", x: 630, y: 42, color: "#22c55e", r: 22, icon: "arrow-up" },
+      { id: "hp2-kag", label: "", sublabel: "HP 2", x: 630, y: 130, color: "#ef4444", r: 22, icon: "arrow-up" },
+      { id: "p1-kag", label: "1", sublabel: "1", x: 630, y: 200, color: "#38bdf8", r: 18 },
+      { id: "p2-kag", label: "2", sublabel: "2", x: 630, y: 248, color: "#38bdf8", r: 18 },
+      { id: "p3-kag", label: "3", sublabel: "3", x: 630, y: 305, color: "#38bdf8", r: 18 },
+      { id: "p4-kag", label: "4", sublabel: "4", x: 630, y: 358, color: "#38bdf8", r: 18 },
+    ],
+    edges: [
+      { from: "edc-kag", to: "comp-psa", label: "230V~", electric: true },
+      { from: "edc-kag", to: "comp2-kag", label: "230V~", electric: true },
+      { from: "edc-kag", to: "seche-double", label: "400V~", electric: true },
+      { from: "edc-kag", to: "dry2-kag", label: "230V~", electric: true },
+      { from: "edc-kag", to: "cu1-kag", label: "400V~", electric: true },
+      { from: "edc-kag", to: "rx-kag", label: "230V~", electric: true },
+      { from: "comp-psa", to: "seche-double", label: "Air" },
+      { from: "comp2-kag", to: "dry2-kag", label: "Air" },
+      { from: "seche-double", to: "cu1-kag", label: "Air-sec" },
+      { from: "dry2-kag", to: "cu2-kag", label: "Air-sec" },
+      { from: "cu1-kag", to: "rx-kag", label: "Air" },
+      { from: "cu2-kag", to: "rx-kag", label: "Air" },
+      { from: "rx-kag", to: "cu3-kag", label: "O\u2082" },
+      { from: "rx-kag", to: "rx700s-kag", label: "Sync M-S" },
+      { from: "rx-kag", to: "p1-kag", label: "Process" },
+      { from: "rx-kag", to: "p2-kag", label: "Process" },
+      { from: "cu3-kag", to: "hp1-kag", label: "O\u2082-BP" },
+      { from: "cu3-kag", to: "hp2-kag", label: "O\u2082-BP" },
+      { from: "rx700s-kag", to: "p3-kag", label: "Process" },
+      { from: "rx700s-kag", to: "p4-kag", label: "Process" },
+    ],
+  },
+};
+
+/* ── Status Badge ── */
+function StatutBadge({ statut }: { statut: Statut }) {
+  const c = statutStyle(statut);
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold"
+      style={{ backgroundColor: c.bg, color: c.text, border: `1px solid ${c.border}` }}>
+      <span className="rounded-full" style={{ width: 7, height: 7, backgroundColor: c.dot, flexShrink: 0 }} />
+      {statut}
+    </span>
+  );
+}
+
+/* ── Dynamic Network Graph ── */
+function NetworkGraph({ nodes, edges, selectedId, onNodeClick, dms, isAdmin, onQuickStatus }: {
+  nodes: GNode[]; edges: GEdge[]; selectedId: string | null; onNodeClick: (id: string) => void;
+  dms: DM[]; isAdmin: boolean; onQuickStatus?: (dmId: string, statut: Statut) => void;
+}) {
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; dmId: string } | null>(null);
+  const dmById = useMemo(() => Object.fromEntries(dms.map(d => [d.id, d])), [dms]);
+
+  const dynNodes = useMemo(() => nodes.map(n => {
+    const dm = dmById[n.id];
+    return dm ? { ...n, color: statutToNodeColor(dm.statut) } : n;
+  }), [nodes, dmById]);
+
+  const byId = Object.fromEntries(dynNodes.map(n => [n.id, n]));
+
+  function onCtx(e: React.MouseEvent, nid: string) {
+    if (!isAdmin || !onQuickStatus || !dmById[nid]) return;
+    e.preventDefault();
+    const rect = (e.currentTarget as SVGElement).closest("svg")?.getBoundingClientRect();
+    if (!rect) return;
+    setCtxMenu({ x: e.clientX - rect.left, y: e.clientY - rect.top, dmId: nid });
+  }
+
+  return (
+    <div className="relative" onClick={() => setCtxMenu(null)}>
+      <svg viewBox="0 0 690 400" className="w-full h-full" style={{ minHeight: 360 }}>
+        <defs>
+          <marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="#f97316" opacity={0.85} />
+          </marker>
+          <marker id="arr-elec" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="#94a3b8" opacity={0.7} />
+          </marker>
+        </defs>
+        {edges.map((e, i) => {
+          const a = byId[e.from]; const b = byId[e.to];
+          if (!a || !b) return null;
+          const dx = b.x - a.x; const dy = b.y - a.y;
+          const dist = Math.hypot(dx, dy); const ux = dx / dist; const uy = dy / dist;
+          const x1 = a.x + ux * a.r; const y1 = a.y + uy * a.r;
+          const x2 = b.x - ux * b.r; const y2 = b.y - uy * b.r;
+          const mx = (x1 + x2) / 2; const my = (y1 + y2) / 2;
+          const isElec = e.electric;
+          return (
+            <g key={i}>
+              <line x1={x1} y1={y1} x2={x2} y2={y2}
+                stroke={isElec ? "#94a3b8" : "#f97316"}
+                strokeWidth={isElec ? 1 : 1.5}
+                strokeDasharray={isElec ? "4 3" : "0"}
+                strokeOpacity={isElec ? 0.55 : 0.85}
+                markerEnd={isElec ? "url(#arr-elec)" : "url(#arr)"} />
+              {e.label && (
+                <text x={mx} y={my - 3} textAnchor="middle"
+                  fill={isElec ? "#64748b" : "#ea580c"} fontSize={6.5} fontWeight="600"
+                  style={{ pointerEvents: "none", userSelect: "none", paintOrder: "stroke", stroke: "#f8fafc", strokeWidth: 2.5, strokeLinejoin: "round" } as React.CSSProperties}>
+                  {e.label}
+                </text>
+              )}
+            </g>
+          );
+        })}
+        {dynNodes.map(n => {
+          const isSel = n.id === selectedId;
+          const dm = dmById[n.id];
+          return (
+            <g key={n.id} onClick={e => { e.stopPropagation(); onNodeClick(n.id); }} onContextMenu={e => onCtx(e, n.id)} style={{ cursor: "pointer" }}>
+              {dm?.statut === "Hors service" && (
+                <circle cx={n.x} cy={n.y} r={n.r + 4} fill="none" stroke="#ef4444" strokeWidth={1.5} opacity={0.6}>
+                  <animate attributeName="r" from={String(n.r + 2)} to={String(n.r + 8)} dur="1.5s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" from="0.6" to="0" dur="1.5s" repeatCount="indefinite" />
+                </circle>
+              )}
+              {isSel && <circle cx={n.x} cy={n.y} r={n.r + 5} fill="none" stroke="#f97316" strokeWidth={2} />}
+              <circle cx={n.x} cy={n.y} r={n.r} fill={n.color} stroke={isSel ? "#f97316" : "#fff"} strokeWidth={isSel ? 2 : 1.5}
+                style={{ filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.18))" }} />
+              {dm?.statut === "Inutilis\u00e9" && (
+                <line x1={n.x - n.r + 4} y1={n.y} x2={n.x + n.r - 4} y2={n.y} stroke="rgba(255,255,255,0.7)" strokeWidth={2} />
+              )}
+              {n.icon === "snowflake" && (
+                <>
+                  <circle cx={n.x} cy={n.y} r={n.r - 7} fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth={1.5} />
+                  <text x={n.x} y={n.y + 0.5} textAnchor="middle" dominantBaseline="central" fill="rgba(255,255,255,0.9)" fontSize={n.r * 0.55}
+                    style={{ pointerEvents: "none", userSelect: "none" }}>{"\u2744"}</text>
+                </>
+              )}
+              {n.icon === "lightning" && (
+                <text x={n.x} y={n.y + 1} textAnchor="middle" dominantBaseline="central" fontSize={n.r * 0.9}
+                  style={{ pointerEvents: "none", userSelect: "none" }}>{"\u26a1"}</text>
+              )}
+              {n.icon === "arrow-up" && (
+                <text x={n.x} y={n.y + 1} textAnchor="middle" dominantBaseline="central" fill="#fff" fontSize={n.r * 0.95} fontWeight="bold"
+                  style={{ pointerEvents: "none", userSelect: "none" }}>{"\u2191"}</text>
+              )}
+              {!n.icon && n.label && (
+                <text x={n.x} y={n.y} textAnchor="middle" dominantBaseline="central" fill="#fff" fontSize={n.label.length > 2 ? 7 : (n.r > 25 ? 11 : 10)} fontWeight="700"
+                  style={{ pointerEvents: "none", userSelect: "none" }}>{n.label}</text>
+              )}
+              {n.sublabel && (
+                <text x={n.x} y={n.y + n.r + 10} textAnchor="middle" fill="#64748b" fontSize={8}
+                  style={{ pointerEvents: "none", userSelect: "none" }}>{n.sublabel}</text>
+              )}
+            </g>
+          );
+        })}
+      </svg>
+      {/* Legend */}
+      <div className="flex items-center gap-3 mt-1 flex-wrap">
+        {STATUTS.map(s => (
+          <div key={s} className="flex items-center gap-1">
+            <span className="rounded-full" style={{ width: 8, height: 8, backgroundColor: statutToNodeColor(s) }} />
+            <span className="text-[10px] text-slate-500">{s}</span>
+          </div>
+        ))}
+        {isAdmin && <span className="text-[10px] text-orange-400 ml-auto">Clic droit = changer statut</span>}
+      </div>
+      {/* Context menu */}
+      {ctxMenu && isAdmin && (
+        <div className="absolute z-20 rounded-lg bg-white border border-slate-200 shadow-xl py-1 flex flex-col min-w-36"
+          style={{ left: ctxMenu.x, top: ctxMenu.y }} onClick={e => e.stopPropagation()}>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide px-3 py-1">Changer le statut</p>
+          {STATUTS.map(s => {
+            const st = statutStyle(s);
+            return <button key={s} onClick={() => { if (onQuickStatus) onQuickStatus(ctxMenu.dmId, s); setCtxMenu(null); }}
+              className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium hover:bg-slate-50 text-left">
+              <span className="rounded-full" style={{ width: 8, height: 8, backgroundColor: st.dot }} />{s}
+            </button>;
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Right Panel Content (keyed by dm.id) ── */
+function RightPanelContent({ dm, isAdmin, onClose, onUpdate, onDelete }: {
+  dm: DM; isAdmin: boolean; onClose: () => void; onUpdate: (dm: DM) => void; onDelete: () => void;
+}) {
+  const [tab, setTab] = useState<PanelTab>("details");
+  const [editing, setEditing] = useState(false);
+  const [editStatut, setEditStatut] = useState<Statut>(dm.statut);
+  // Info fields
+  const [eModele, setEModele] = useState(dm.modele);
+  const [eMarque, setEMarque] = useState(dm.marque ?? "");
+  const [eSerie, setESerie] = useState(dm.serie);
+  const [eClasse, setEClasse] = useState(dm.classe ?? "");
+  const [eService, setEService] = useState(dm.service ?? "");
+  const [eLocalisation, setELocalisation] = useState(dm.localisation ?? "");
+  const [eDateInstall, setEDateInstall] = useState(dm.dateInstall ?? "");
+  const [eFournisseur, setEFournisseur] = useState(dm.fournisseur ?? "");
+  const [ePms, setEPms] = useState(dm.pms);
+  // Historique form
+  const [hDate, setHDate] = useState(""); const [hType, setHType] = useState<HistoriqueEntry["type"]>("PV pr\u00e9ventif");
+  const [hDesc, setHDesc] = useState(""); const [hTech, setHTech] = useState(""); const [hPieces, setHPieces] = useState("");
+  // Piece form
+  const [pRef, setPRef] = useState(""); const [pDesig, setPDesig] = useState("");
+  const [pQte, setPQte] = useState("1"); const [pPrix, setPPrix] = useState(""); const [pUrg, setPUrg] = useState<Piece["urgence"]>("normale");
+  const [pFour, setPFour] = useState("");
+  // Kit form
+  const [kRef, setKRef] = useState(""); const [kDesig, setKDesig] = useState(""); const [kContenu, setKContenu] = useState("");
+  const [kQte, setKQte] = useState("1"); const [kPrix, setKPrix] = useState(""); const [kPeriod, setKPeriod] = useState<Kit["periodicite"]>("Annuel");
+  const [kFour, setKFour] = useState(""); const [kDernier, setKDernier] = useState("");
+  // Inline edit
+  const [editingPieceId, setEditingPieceId] = useState<string | null>(null);
+  const [editingKitId, setEditingKitId] = useState<string | null>(null);
+  const [editingHistoId, setEditingHistoId] = useState<string | null>(null);
+
+  const kits = dm.kits ?? [];
+
+  function saveStatut() { onUpdate({ ...dm, statut: editStatut }); }
+  function saveInfos() {
+    onUpdate({ ...dm, modele: eModele, marque: eMarque || undefined, serie: eSerie, classe: eClasse || undefined, service: eService || undefined,
+      localisation: eLocalisation || undefined, dateInstall: eDateInstall || undefined, fournisseur: eFournisseur || undefined, pms: ePms });
+  }
+  function addHisto() {
+    if (!hDate || !hDesc || !hTech) return;
+    onUpdate({ ...dm, historique: [...dm.historique, { id: uid(), date: hDate, type: hType, description: hDesc, technicien: hTech, pieces: hPieces ? hPieces.split(",").map(s => s.trim()).filter(Boolean) : [] }] });
+    setHDate(""); setHDesc(""); setHTech(""); setHPieces("");
+  }
+  function removeHisto(hid: string) { onUpdate({ ...dm, historique: dm.historique.filter(h => h.id !== hid) }); }
+  function addPiece() {
+    if (!pRef || !pDesig || !pPrix) return;
+    onUpdate({ ...dm, pieces: [...dm.pieces, { id: uid(), reference: pRef, designation: pDesig, qte: parseInt(pQte) || 1, prixUnit: parseFloat(pPrix) || 0, urgence: pUrg, fournisseur: pFour || undefined }] });
+    setPRef(""); setPDesig(""); setPQte("1"); setPPrix(""); setPFour("");
+  }
+  function removePiece(pid: string) { onUpdate({ ...dm, pieces: dm.pieces.filter(p => p.id !== pid) }); }
+  function updatePiece(pid: string, patch: Partial<Piece>) {
+    onUpdate({ ...dm, pieces: dm.pieces.map(p => p.id === pid ? { ...p, ...patch } : p) });
+  }
+  function addKit() {
+    if (!kRef || !kDesig) return;
+    onUpdate({ ...dm, kits: [...kits, { id: uid(), reference: kRef, designation: kDesig, contenu: kContenu, qte: parseInt(kQte) || 1, prixUnit: parseFloat(kPrix) || 0, periodicite: kPeriod, fournisseur: kFour || undefined, dernierUtilise: kDernier || undefined }] });
+    setKRef(""); setKDesig(""); setKContenu(""); setKQte("1"); setKPrix(""); setKFour(""); setKDernier("");
+  }
+  function removeKit(kid: string) { onUpdate({ ...dm, kits: kits.filter(k => k.id !== kid) }); }
+  function updateKit(kid: string, patch: Partial<Kit>) {
+    onUpdate({ ...dm, kits: kits.map(k => k.id === kid ? { ...k, ...patch } : k) });
+  }
+  function updateHisto(hid: string, patch: Partial<HistoriqueEntry>) {
+    onUpdate({ ...dm, historique: dm.historique.map(h => h.id === hid ? { ...h, ...patch } : h) });
+  }
+  function confirmDelete() { if (window.confirm("Supprimer d\u00e9finitivement cet \u00e9quipement ?")) onDelete(); }
+
+  const totalCost = dm.pieces.reduce((a, p) => a + p.qte * p.prixUnit, 0);
+  const totalKitCost = kits.reduce((a, k) => a + k.qte * k.prixUnit, 0);
+  const TABS: { key: PanelTab; label: string }[] = [
+    { key: "details", label: "D\u00e9tails" },
+    { key: "historique", label: `Historique (${dm.historique.length})` },
+    { key: "pieces", label: `Pi\u00e8ces (${dm.pieces.length})` },
+    { key: "kits", label: `Kits (${kits.length})` },
+  ];
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex items-start justify-between px-4 pt-4 pb-2 border-b border-slate-100">
+        <div className="flex-1 min-w-0 pr-2">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 mb-0.5">\u00c9quipement</p>
+          <p className="text-sm font-bold text-slate-900 leading-tight truncate">{dm.modele}</p>
+          <div className="mt-1"><StatutBadge statut={dm.statut} /></div>
+        </div>
+        <button onClick={onClose} className="text-slate-300 hover:text-slate-500 text-xl leading-none shrink-0">\u00d7</button>
+      </div>
+      <div className="flex border-b border-slate-100 px-4 pt-2">
+        {TABS.map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)}
+            className="mr-3 pb-1.5 text-xs font-semibold border-b-2 transition-colors"
+            style={{ borderColor: tab === t.key ? "#f97316" : "transparent", color: tab === t.key ? "#f97316" : "#94a3b8" }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-3">
+        {/* Admin buttons */}
+        {isAdmin && !editing ? (
+          <div className="flex gap-2">
+            <button onClick={() => setEditing(true)} className={btnSm} style={{ backgroundColor: "#f97316", color: "#fff" }}>Modifier</button>
+            <button onClick={confirmDelete} className={btnSm} style={{ backgroundColor: "#ef4444", color: "#fff" }}>Supprimer</button>
+          </div>
+        ) : null}
+
+        {/* Edit form */}
+        {editing ? (
+          <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 flex flex-col gap-3">
+            <p className="text-xs font-bold text-orange-700">Mode \u00e9dition</p>
+
+            {/* Status */}
+            <div>
+              <label className={labelCls}>Statut</label>
+              <div className="flex gap-1.5 flex-wrap">
+                {STATUTS.map(s => {
+                  const st = statutStyle(s); const sel = editStatut === s;
+                  return <button key={s} onClick={() => { setEditStatut(s); onUpdate({ ...dm, statut: s }); }}
+                    className="rounded-full px-2.5 py-1 text-[11px] font-semibold transition-all flex items-center gap-1"
+                    style={{ backgroundColor: sel ? st.dot : st.bg, color: sel ? "#fff" : st.text, border: `1.5px solid ${sel ? st.dot : st.border}` }}>
+                    <span className="rounded-full" style={{ width: 6, height: 6, backgroundColor: sel ? "#fff" : st.dot }} />{s}
+                  </button>;
+                })}
+              </div>
+            </div>
+
+            <hr className="border-orange-200" />
+
+            {/* Edit all fields */}
+            <div>
+              <p className="text-xs font-bold text-orange-700 mb-2">Informations g\u00e9n\u00e9rales</p>
+              <div className="flex flex-col gap-1.5">
+                <div className="grid grid-cols-2 gap-1.5">
+                  <div><label className={labelCls}>Mod\u00e8le</label><input value={eModele} onChange={e => setEModele(e.target.value)} className={inputCls} /></div>
+                  <div><label className={labelCls}>Marque / Fabricant</label><input value={eMarque} onChange={e => setEMarque(e.target.value)} className={inputCls} placeholder="ex: Atlas Copco" /></div>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <div><label className={labelCls}>N\u00b0 S\u00e9rie</label><input value={eSerie} onChange={e => setESerie(e.target.value)} className={inputCls} /></div>
+                  <div><label className={labelCls}>Classe IEC</label>
+                    <select value={eClasse} onChange={e => setEClasse(e.target.value)} className={inputCls}>
+                      <option value="">\u2014</option>{CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <div><label className={labelCls}>Service</label><input value={eService} onChange={e => setEService(e.target.value)} className={inputCls} /></div>
+                  <div><label className={labelCls}>Localisation</label><input value={eLocalisation} onChange={e => setELocalisation(e.target.value)} className={inputCls} /></div>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <div><label className={labelCls}>Date install.</label><input type="date" value={eDateInstall} onChange={e => setEDateInstall(e.target.value)} className={inputCls} /></div>
+                  <div><label className={labelCls}>Prochaine PMS</label><input type="date" value={ePms} onChange={e => setEPms(e.target.value)} className={inputCls} /></div>
+                </div>
+                <div><label className={labelCls}>Fournisseur</label><input value={eFournisseur} onChange={e => setEFournisseur(e.target.value)} className={inputCls} /></div>
+                <button onClick={saveInfos} className={btnSm + " self-start mt-1"} style={{ backgroundColor: "#15803d", color: "#fff" }}>Sauvegarder infos</button>
+              </div>
+            </div>
+
+            <hr className="border-orange-200" />
+
+            {/* Add historique */}
+            <div>
+              <p className="text-xs font-bold text-orange-700 mb-2">Ajouter entr\u00e9e historique</p>
+              <div className="flex flex-col gap-1.5">
+                <div><label className={labelCls}>Date</label><input type="date" value={hDate} onChange={e => setHDate(e.target.value)} className={inputCls} /></div>
+                <div><label className={labelCls}>Type</label>
+                  <select value={hType} onChange={e => setHType(e.target.value as HistoriqueEntry["type"])} className={inputCls}>
+                    {HISTO_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div><label className={labelCls}>Description</label><textarea value={hDesc} onChange={e => setHDesc(e.target.value)} className={inputCls} rows={2} /></div>
+                <div><label className={labelCls}>Technicien</label><input value={hTech} onChange={e => setHTech(e.target.value)} className={inputCls} placeholder="Nom pr\u00e9nom" /></div>
+                <div><label className={labelCls}>Pi\u00e8ces (virgule)</label><input value={hPieces} onChange={e => setHPieces(e.target.value)} className={inputCls} placeholder="ex: Filtre A, Joint B" /></div>
+                <button onClick={addHisto} className={btnSm} style={{ backgroundColor: "#3b82f6", color: "#fff" }}>+ Ajouter</button>
+              </div>
+            </div>
+
+            <hr className="border-orange-200" />
+
+            {/* Add piece */}
+            <div>
+              <p className="text-xs font-bold text-orange-700 mb-2">Ajouter pi\u00e8ce n\u00e9cessaire</p>
+              <div className="flex flex-col gap-1.5">
+                <div className="grid grid-cols-2 gap-1.5">
+                  <div><label className={labelCls}>R\u00e9f\u00e9rence</label><input value={pRef} onChange={e => setPRef(e.target.value)} className={inputCls} placeholder="REF-001" /></div>
+                  <div><label className={labelCls}>Qt\u00e9</label><input type="number" min="1" value={pQte} onChange={e => setPQte(e.target.value)} className={inputCls} /></div>
+                </div>
+                <div><label className={labelCls}>D\u00e9signation</label><input value={pDesig} onChange={e => setPDesig(e.target.value)} className={inputCls} placeholder="Nom de la pi\u00e8ce" /></div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <div><label className={labelCls}>Prix unit. (\u20ac)</label><input type="number" value={pPrix} onChange={e => setPPrix(e.target.value)} className={inputCls} /></div>
+                  <div><label className={labelCls}>Urgence</label>
+                    <select value={pUrg} onChange={e => setPUrg(e.target.value as Piece["urgence"])} className={inputCls}>
+                      <option value="critique">Critique</option><option value="normale">Normale</option><option value="basse">Basse</option>
+                    </select>
+                  </div>
+                </div>
+                <div><label className={labelCls}>Fournisseur</label><input value={pFour} onChange={e => setPFour(e.target.value)} className={inputCls} placeholder="Optionnel" /></div>
+                <button onClick={addPiece} className={btnSm} style={{ backgroundColor: "#3b82f6", color: "#fff" }}>+ Ajouter pi\u00e8ce</button>
+              </div>
+            </div>
+
+            <hr className="border-orange-200" />
+
+            {/* Add kit */}
+            <div>
+              <p className="text-xs font-bold text-orange-700 mb-2">Ajouter kit de maintenance</p>
+              <div className="flex flex-col gap-1.5">
+                <div className="grid grid-cols-2 gap-1.5">
+                  <div><label className={labelCls}>R\u00e9f\u00e9rence</label><input value={kRef} onChange={e => setKRef(e.target.value)} className={inputCls} placeholder="KIT-001" /></div>
+                  <div><label className={labelCls}>Qt\u00e9</label><input type="number" min="1" value={kQte} onChange={e => setKQte(e.target.value)} className={inputCls} /></div>
+                </div>
+                <div><label className={labelCls}>D\u00e9signation</label><input value={kDesig} onChange={e => setKDesig(e.target.value)} className={inputCls} placeholder="Nom du kit" /></div>
+                <div><label className={labelCls}>Contenu</label><textarea value={kContenu} onChange={e => setKContenu(e.target.value)} className={inputCls} rows={2} placeholder="ex: filtre, joint, courroie..." /></div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <div><label className={labelCls}>Prix unit. (\u20ac)</label><input type="number" value={kPrix} onChange={e => setKPrix(e.target.value)} className={inputCls} /></div>
+                  <div><label className={labelCls}>P\u00e9riodicit\u00e9</label>
+                    <select value={kPeriod} onChange={e => setKPeriod(e.target.value as Kit["periodicite"])} className={inputCls}>
+                      {KIT_PERIODICITE.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <div><label className={labelCls}>Fournisseur</label><input value={kFour} onChange={e => setKFour(e.target.value)} className={inputCls} placeholder="Optionnel" /></div>
+                  <div><label className={labelCls}>Dernier utilis\u00e9</label><input type="date" value={kDernier} onChange={e => setKDernier(e.target.value)} className={inputCls} /></div>
+                </div>
+                <button onClick={addKit} className={btnSm} style={{ backgroundColor: "#8b5cf6", color: "#fff" }}>+ Ajouter kit</button>
+              </div>
+            </div>
+
+            <button onClick={() => setEditing(false)} className={btnSm + " self-start text-slate-500 mt-1"}>Fermer l\u2019\u00e9dition</button>
+          </div>
+        ) : null}
+
+        {/* Details tab */}
+        {tab === "details" ? (
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
+            {[["Marque / Fabricant", dm.marque ?? "\u2014"], ["N\u00b0 S\u00e9rie", dm.serie], ["Classe IEC", dm.classe ?? "\u2014"], ["Service", dm.service ?? "\u2014"], ["Localisation", dm.localisation ?? "\u2014"], ["Date installation", dm.dateInstall ?? "\u2014"], ["Fournisseur", dm.fournisseur ?? "\u2014"], ["Prochaine PMS", dm.pms], ["Actions ouvertes", String(dm.actions)]].map(([k, v]) => (
+              <div key={k}><p className="text-[10px] text-slate-400 uppercase tracking-wide mb-0.5">{k}</p><p className="font-medium text-slate-800">{v}</p></div>
+            ))}
+          </div>
+        ) : null}
+
+        {/* Historique tab */}
+        {tab === "historique" ? (
+          <div className="flex flex-col gap-2">
+            {dm.historique.length === 0 ? <p className="text-xs text-slate-400 italic">Aucun historique disponible</p> : null}
+            {[...dm.historique].sort((a, b) => b.date.localeCompare(a.date)).map(h => (
+              <div key={h.id} className="rounded-lg border border-slate-100 bg-slate-50 p-2.5 relative">
+                {isAdmin && (
+                  <button onClick={() => removeHisto(h.id)} className="absolute top-1.5 right-1.5 text-red-400 hover:text-red-600 text-xs leading-none" title="Supprimer">\u2715</button>
+                )}
+                <div className="flex items-center justify-between mb-1 pr-4">
+                  <span className="text-[10px] font-bold text-slate-500">{h.date}</span>
+                  <span className="text-[10px] rounded-full px-1.5 py-0.5 bg-blue-100 text-blue-700 font-semibold">{h.type}</span>
+                </div>
+                <p className="text-xs text-slate-700 leading-relaxed">{h.description}</p>
+                <p className="text-[10px] text-slate-400 mt-1">Technicien : {h.technicien}</p>
+                {h.pieces.length > 0 ? <p className="text-[10px] text-slate-500 mt-0.5">Pi\u00e8ces : {h.pieces.join(", ")}</p> : null}
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        {/* Pieces tab */}
+        {tab === "pieces" ? (
+          <div className="flex flex-col gap-2">
+            {dm.pieces.length === 0 ? <p className="text-xs text-slate-400 italic">Aucune pi\u00e8ce n\u00e9cessaire</p> : null}
+            {dm.pieces.map(p => {
+              const us = urgenceStyle(p.urgence);
+              const isEdit = editingPieceId === p.id;
+              if (isEdit && isAdmin) {
+                return (
+                  <div key={p.id} className="rounded-lg border border-orange-300 bg-orange-50 p-2.5 flex flex-col gap-1.5">
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <div><label className={labelCls}>R\u00e9f.</label><input value={p.reference} onChange={e => updatePiece(p.id, { reference: e.target.value })} className={inputCls} /></div>
+                      <div><label className={labelCls}>Qt\u00e9</label><input type="number" value={p.qte} onChange={e => updatePiece(p.id, { qte: parseInt(e.target.value) || 1 })} className={inputCls} /></div>
+                    </div>
+                    <div><label className={labelCls}>D\u00e9signation</label><input value={p.designation} onChange={e => updatePiece(p.id, { designation: e.target.value })} className={inputCls} /></div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <div><label className={labelCls}>Prix (\u20ac)</label><input type="number" value={p.prixUnit} onChange={e => updatePiece(p.id, { prixUnit: parseFloat(e.target.value) || 0 })} className={inputCls} /></div>
+                      <div><label className={labelCls}>Urgence</label>
+                        <select value={p.urgence} onChange={e => updatePiece(p.id, { urgence: e.target.value as Piece["urgence"] })} className={inputCls}>
+                          <option value="critique">Critique</option><option value="normale">Normale</option><option value="basse">Basse</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div><label className={labelCls}>Fournisseur</label><input value={p.fournisseur ?? ""} onChange={e => updatePiece(p.id, { fournisseur: e.target.value || undefined })} className={inputCls} /></div>
+                    <div className="flex gap-1.5 mt-1">
+                      <button onClick={() => setEditingPieceId(null)} className={btnSm} style={{ backgroundColor: "#15803d", color: "#fff" }}>OK</button>
+                      <button onClick={() => { removePiece(p.id); setEditingPieceId(null); }} className={btnSm} style={{ backgroundColor: "#ef4444", color: "#fff" }}>Supprimer</button>
+                    </div>
+                  </div>
+                );
+              }
+              return (
+                <div key={p.id} className="rounded-lg border border-slate-100 bg-slate-50 p-2.5">
+                  <div className="flex items-start justify-between gap-1">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] font-mono text-slate-500">{p.reference}</span>
+                        <span className="text-[10px] rounded-full px-1.5 py-0.5 font-semibold" style={{ backgroundColor: us.bg, color: us.text, border: `1px solid ${us.border}` }}>{p.urgence}</span>
+                        {p.fournisseur ? <span className="text-[9px] text-slate-400">\u00b7 {p.fournisseur}</span> : null}
+                      </div>
+                      <p className="text-xs font-semibold text-slate-800 mt-0.5">{p.designation}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">Qt\u00e9 {p.qte} \u00d7 {fmtEur(p.prixUnit)} = <strong>{fmtEur(p.qte * p.prixUnit)}</strong></p>
+                    </div>
+                    {isAdmin ? (
+                      <div className="flex gap-1 shrink-0">
+                        <button onClick={() => setEditingPieceId(p.id)} className="text-orange-500 hover:text-orange-700 text-xs" title="Modifier">\u270e</button>
+                        <button onClick={() => removePiece(p.id)} className="text-red-400 hover:text-red-600 text-xs" title="Supprimer">\u2715</button>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+            {dm.pieces.length > 0 ? (
+              <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-600">Total estim\u00e9</span>
+                <span className="text-sm font-bold text-slate-900">{fmtEur(totalCost)}</span>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {/* Kits tab */}
+        {tab === "kits" ? (
+          <div className="flex flex-col gap-2">
+            {kits.length === 0 ? <p className="text-xs text-slate-400 italic">Aucun kit de maintenance enregistr\u00e9</p> : null}
+            {kits.map(k => {
+              const ps = periodStyle(k.periodicite);
+              const isEdit = editingKitId === k.id;
+              if (isEdit && isAdmin) {
+                return (
+                  <div key={k.id} className="rounded-lg border border-purple-300 bg-purple-50 p-2.5 flex flex-col gap-1.5">
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <div><label className={labelCls}>R\u00e9f.</label><input value={k.reference} onChange={e => updateKit(k.id, { reference: e.target.value })} className={inputCls} /></div>
+                      <div><label className={labelCls}>Qt\u00e9</label><input type="number" value={k.qte} onChange={e => updateKit(k.id, { qte: parseInt(e.target.value) || 1 })} className={inputCls} /></div>
+                    </div>
+                    <div><label className={labelCls}>D\u00e9signation</label><input value={k.designation} onChange={e => updateKit(k.id, { designation: e.target.value })} className={inputCls} /></div>
+                    <div><label className={labelCls}>Contenu</label><textarea value={k.contenu} onChange={e => updateKit(k.id, { contenu: e.target.value })} className={inputCls} rows={2} /></div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <div><label className={labelCls}>Prix (\u20ac)</label><input type="number" value={k.prixUnit} onChange={e => updateKit(k.id, { prixUnit: parseFloat(e.target.value) || 0 })} className={inputCls} /></div>
+                      <div><label className={labelCls}>P\u00e9riodicit\u00e9</label>
+                        <select value={k.periodicite} onChange={e => updateKit(k.id, { periodicite: e.target.value as Kit["periodicite"] })} className={inputCls}>
+                          {KIT_PERIODICITE.map(p => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <div><label className={labelCls}>Fournisseur</label><input value={k.fournisseur ?? ""} onChange={e => updateKit(k.id, { fournisseur: e.target.value || undefined })} className={inputCls} /></div>
+                      <div><label className={labelCls}>Dernier utilis\u00e9</label><input type="date" value={k.dernierUtilise ?? ""} onChange={e => updateKit(k.id, { dernierUtilise: e.target.value || undefined })} className={inputCls} /></div>
+                    </div>
+                    <div className="flex gap-1.5 mt-1">
+                      <button onClick={() => setEditingKitId(null)} className={btnSm} style={{ backgroundColor: "#15803d", color: "#fff" }}>OK</button>
+                      <button onClick={() => { removeKit(k.id); setEditingKitId(null); }} className={btnSm} style={{ backgroundColor: "#ef4444", color: "#fff" }}>Supprimer</button>
+                    </div>
+                  </div>
+                );
+              }
+              return (
+                <div key={k.id} className="rounded-lg border border-slate-100 bg-purple-50/40 p-2.5">
+                  <div className="flex items-start justify-between gap-1">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] font-mono text-slate-500">{k.reference}</span>
+                        <span className="text-[10px] rounded-full px-1.5 py-0.5 font-semibold" style={{ backgroundColor: ps.bg, color: ps.text, border: `1px solid ${ps.border}` }}>{k.periodicite}</span>
+                        {k.fournisseur ? <span className="text-[9px] text-slate-400">\u00b7 {k.fournisseur}</span> : null}
+                      </div>
+                      <p className="text-xs font-semibold text-slate-800 mt-0.5">{k.designation}</p>
+                      {k.contenu ? <p className="text-[11px] text-slate-600 mt-0.5 italic">{k.contenu}</p> : null}
+                      <p className="text-xs text-slate-500 mt-0.5">Qt\u00e9 {k.qte} \u00d7 {fmtEur(k.prixUnit)} = <strong>{fmtEur(k.qte * k.prixUnit)}</strong></p>
+                      {k.dernierUtilise ? <p className="text-[10px] text-slate-400 mt-0.5">Dernier usage : {k.dernierUtilise}</p> : null}
+                    </div>
+                    {isAdmin ? (
+                      <div className="flex gap-1 shrink-0">
+                        <button onClick={() => setEditingKitId(k.id)} className="text-purple-500 hover:text-purple-700 text-xs" title="Modifier">\u270e</button>
+                        <button onClick={() => removeKit(k.id)} className="text-red-400 hover:text-red-600 text-xs" title="Supprimer">\u2715</button>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+            {kits.length > 0 ? (
+              <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-600">Total kits</span>
+                <span className="text-sm font-bold text-slate-900">{fmtEur(totalKitCost)}</span>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+/* ── Right Panel shell ── */
+function RightPanel({ dm, isAdmin, onClose, onUpdate, onDelete }: {
+  dm: DM | null; isAdmin: boolean; onClose: () => void; onUpdate: (dm: DM) => void; onDelete: () => void;
+}) {
+  if (!dm) return (
+    <div className="flex flex-1 flex-col items-center justify-center text-center px-6 py-8">
+      <div style={{ fontSize: 32, marginBottom: 12, opacity: 0.3 }}>{"\ud83d\udd2c"}</div>
+      <p className="text-sm font-semibold text-slate-600 mb-1">Aucun \u00e9quipement s\u00e9lectionn\u00e9</p>
+      <p className="text-xs text-slate-400 leading-relaxed">Cliquez sur une ligne du tableau ou un n\u0153ud du graphe</p>
+    </div>
+  );
+  return <RightPanelContent key={dm.id} dm={dm} isAdmin={isAdmin} onClose={onClose} onUpdate={onUpdate} onDelete={onDelete} />;
+}
+
+/* ── Add DM Form ── */
+function AddDMForm({ onAdd, onCancel }: { onAdd: (dm: DM) => void; onCancel: () => void }) {
+  const [modele, setModele] = useState(""); const [marque, setMarque] = useState(""); const [serie, setSerie] = useState("");
+  const [classe, setClasse] = useState("IIa"); const [service, setService] = useState("");
+  const [localisation, setLocalisation] = useState(""); const [statut, setStatut] = useState<Statut>("Fonctionnel");
+  const [pms, setPms] = useState(""); const [dateInstall, setDateInstall] = useState(""); const [fournisseur, setFournisseur] = useState("");
+
+  function submit() {
+    if (!modele) return;
+    onAdd({ id: uid(), modele, marque: marque || undefined, serie: serie || "\u2014", statut, pms: pms || "\u2014", actions: 0, classe, service: service || undefined, localisation: localisation || undefined, dateInstall: dateInstall || undefined, fournisseur: fournisseur || undefined, historique: [], pieces: [], kits: [] });
+  }
+
+  return (
+    <div className="rounded-xl border-2 border-dashed border-orange-300 bg-orange-50 p-4 flex flex-col gap-2">
+      <p className="text-sm font-bold text-orange-700 mb-1">Ajouter un \u00e9quipement</p>
+      <div className="grid grid-cols-2 gap-2">
+        <div><label className={labelCls}>Mod\u00e8le *</label><input value={modele} onChange={e => setModele(e.target.value)} className={inputCls} placeholder="Nom du mod\u00e8le" /></div>
+        <div><label className={labelCls}>Marque / Fabricant</label><input value={marque} onChange={e => setMarque(e.target.value)} className={inputCls} placeholder="ex: Atlas Copco" /></div>
+        <div><label className={labelCls}>N\u00b0 S\u00e9rie</label><input value={serie} onChange={e => setSerie(e.target.value)} className={inputCls} /></div>
+        <div><label className={labelCls}>Statut</label>
+          <select value={statut} onChange={e => setStatut(e.target.value as Statut)} className={inputCls}>
+            {STATUTS.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <div><label className={labelCls}>Classe IEC</label>
+          <select value={classe} onChange={e => setClasse(e.target.value)} className={inputCls}>
+            {CLASSES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        <div><label className={labelCls}>Service</label><input value={service} onChange={e => setService(e.target.value)} className={inputCls} /></div>
+        <div><label className={labelCls}>Localisation</label><input value={localisation} onChange={e => setLocalisation(e.target.value)} className={inputCls} /></div>
+        <div><label className={labelCls}>Date install.</label><input type="date" value={dateInstall} onChange={e => setDateInstall(e.target.value)} className={inputCls} /></div>
+        <div><label className={labelCls}>Prochaine PMS</label><input type="date" value={pms} onChange={e => setPms(e.target.value)} className={inputCls} /></div>
+      </div>
+      <div><label className={labelCls}>Fournisseur</label><input value={fournisseur} onChange={e => setFournisseur(e.target.value)} className={inputCls} /></div>
+      <div className="flex gap-2 mt-1">
+        <button onClick={submit} className={btnSm} style={{ backgroundColor: "#15803d", color: "#fff" }}>Cr\u00e9er</button>
+        <button onClick={onCancel} className={btnSm + " text-slate-500"}>Annuler</button>
+      </div>
+    </div>
+  );
+}
+
+/* ── Counts helper ── */
+function countStatuts(dms: DM[]) {
+  let fonct = 0, hs = 0, att = 0, inut = 0;
+  for (const d of dms) {
+    if (d.statut === "Fonctionnel") fonct++;
+    else if (d.statut === "Hors service") hs++;
+    else if (d.statut === "En attente") att++;
+    else inut++;
+  }
+  return { fonct, hs, att, inut };
+}
+
+/* ── Plan d'actions View ── */
+function PlanActionView({ allData, isAdmin }: { allData: Record<SiteKey, SiteData>; isAdmin: boolean }) {
+  // Aggregate per site per DM: pieces critiques + kits + statut
+  const sitePlans = useMemo(() => {
+    return SITE_KEYS.map(sk => {
+      const dms = allData[sk].dms;
+      let sitePiecesCost = 0, siteKitsCost = 0;
+      const dmPlans = dms.map(dm => {
+        const critiques = dm.pieces.filter(p => p.urgence === "critique");
+        const normales = dm.pieces.filter(p => p.urgence === "normale");
+        const kits = dm.kits ?? [];
+        const pieceCost = dm.pieces.reduce((a, p) => a + p.qte * p.prixUnit, 0);
+        const kitCost = kits.reduce((a, k) => a + k.qte * k.prixUnit, 0);
+        sitePiecesCost += pieceCost;
+        siteKitsCost += kitCost;
+        return { dm, critiques, normales, kits, pieceCost, kitCost, total: pieceCost + kitCost };
+      });
+      return { sk, dms: dmPlans, sitePiecesCost, siteKitsCost, siteTotal: sitePiecesCost + siteKitsCost };
+    });
+  }, [allData]);
+
+  const grandTotal = sitePlans.reduce((a, s) => a + s.siteTotal, 0);
+  const grandPieces = sitePlans.reduce((a, s) => a + s.sitePiecesCost, 0);
+  const grandKits = sitePlans.reduce((a, s) => a + s.siteKitsCost, 0);
+
+  const kpis = [
+    { label: "Budget total", value: fmtEur(grandTotal), color: "#0a2540" },
+    { label: "Pi\u00e8ces d\u00e9tach\u00e9es", value: fmtEur(grandPieces), color: "#f97316" },
+    { label: "Kits maintenance", value: fmtEur(grandKits), color: "#8b5cf6" },
+  ];
+
+  return (
+    <div className="flex flex-col gap-5">
+      {/* KPIs */}
+      <div className="grid grid-cols-3 gap-3">
+        {kpis.map(k => (
+          <div key={k.label} className="rounded-xl bg-white border border-slate-100 shadow-sm px-5 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">{k.label}</p>
+            <p className="mt-1 text-2xl font-bold" style={{ color: k.color }}>{k.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Per site */}
+      {sitePlans.map(({ sk, dms, siteTotal }) => (
+        <div key={sk} className="rounded-xl bg-white border border-slate-100 shadow-sm overflow-hidden">
+          {/* Site header */}
+          <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between" style={{ backgroundColor: "#f8faff" }}>
+            <div className="flex items-center gap-3">
+              <span className="rounded-lg px-2.5 py-1 text-xs font-bold text-white" style={{ backgroundColor: "#0a2540" }}>{sk}</span>
+              <p className="text-sm font-bold text-slate-800">Plan d\u2019actions de maintenance</p>
+            </div>
+            <p className="text-sm font-bold" style={{ color: "#0a2540" }}>{fmtEur(siteTotal)} estim\u00e9</p>
+          </div>
+
+          {/* Equipment rows */}
+          <div className="divide-y divide-slate-50">
+            {dms.length === 0 && <p className="text-xs text-slate-400 italic px-5 py-4">Aucun \u00e9quipement enregistr\u00e9</p>}
+            {dms.map(({ dm, critiques, normales, kits, pieceCost, kitCost, total }) => {
+              const needsAction = dm.statut !== "Fonctionnel" || critiques.length > 0 || kits.length > 0;
+              const ss = statutStyle(dm.statut);
+              return (
+                <div key={dm.id} className="px-5 py-4">
+                  {/* DM header row */}
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="text-xs font-bold text-slate-800">{dm.modele}</p>
+                        {dm.marque && <span className="text-[10px] text-slate-400">{dm.marque}</span>}
+                        <span className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold" style={{ backgroundColor: ss.bg, color: ss.text, border: `1px solid ${ss.border}` }}>{dm.statut}</span>
+                      </div>
+                      <p className="text-[10px] text-slate-400">N\u00b0 {dm.serie} {dm.service ? "\u00b7 " + dm.service : ""} {dm.pms !== "\u2014" ? "\u00b7 PMS : " + dm.pms : ""}</p>
+                    </div>
+                    <div className="text-right shrink-0 ml-4">
+                      <p className="text-sm font-bold text-slate-800">{fmtEur(total)}</p>
+                      <p className="text-[10px] text-slate-400">budget \u00e9quipement</p>
+                    </div>
+                  </div>
+
+                  {/* Statut alert */}
+                  {dm.statut === "Hors service" && (
+                    <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 mb-2 flex items-center gap-2">
+                      <span className="text-red-500 font-bold text-xs">!</span>
+                      <p className="text-xs text-red-700 font-semibold">Action corrective urgente \u2014 \u00e9quipement hors service</p>
+                    </div>
+                  )}
+                  {dm.statut === "En attente" && (
+                    <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 mb-2 flex items-center gap-2">
+                      <span className="text-amber-500 font-bold text-xs">\u26a0</span>
+                      <p className="text-xs text-amber-700 font-semibold">En attente d\u2019intervention \u2014 v\u00e9rifier les d\u00e9pendances</p>
+                    </div>
+                  )}
+
+                  {/* Pièces critiques */}
+                  {critiques.length > 0 && (
+                    <div className="mb-2">
+                      <p className="text-[10px] font-bold text-red-600 uppercase tracking-wide mb-1">Pi\u00e8ces critiques \u00e0 commander ({critiques.length})</p>
+                      <div className="rounded-lg border border-red-100 overflow-hidden">
+                        <table className="w-full text-xs">
+                          <thead><tr className="bg-red-50">
+                            <th className="px-3 py-1.5 text-left text-[10px] font-semibold text-red-400 uppercase">R\u00e9f\u00e9rence</th>
+                            <th className="px-3 py-1.5 text-left text-[10px] font-semibold text-red-400 uppercase">D\u00e9signation</th>
+                            <th className="px-3 py-1.5 text-center text-[10px] font-semibold text-red-400 uppercase">Qt\u00e9</th>
+                            <th className="px-3 py-1.5 text-right text-[10px] font-semibold text-red-400 uppercase">Total</th>
+                          </tr></thead>
+                          <tbody>
+                            {critiques.map(p => (
+                              <tr key={p.id} className="border-t border-red-50">
+                                <td className="px-3 py-1.5 font-mono text-slate-500">{p.reference}</td>
+                                <td className="px-3 py-1.5 text-slate-700">{p.designation}</td>
+                                <td className="px-3 py-1.5 text-center">{p.qte}</td>
+                                <td className="px-3 py-1.5 text-right font-semibold text-slate-800">{fmtEur(p.qte * p.prixUnit)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Pièces normales */}
+                  {normales.length > 0 && (
+                    <div className="mb-2">
+                      <p className="text-[10px] font-bold text-orange-500 uppercase tracking-wide mb-1">Pi\u00e8ces \u00e0 pr\u00e9voir ({normales.length})</p>
+                      <div className="rounded-lg border border-orange-100 overflow-hidden">
+                        <table className="w-full text-xs">
+                          <thead><tr className="bg-orange-50">
+                            <th className="px-3 py-1.5 text-left text-[10px] font-semibold text-orange-400 uppercase">R\u00e9f\u00e9rence</th>
+                            <th className="px-3 py-1.5 text-left text-[10px] font-semibold text-orange-400 uppercase">D\u00e9signation</th>
+                            <th className="px-3 py-1.5 text-center text-[10px] font-semibold text-orange-400 uppercase">Qt\u00e9</th>
+                            <th className="px-3 py-1.5 text-right text-[10px] font-semibold text-orange-400 uppercase">Total</th>
+                          </tr></thead>
+                          <tbody>
+                            {normales.map(p => (
+                              <tr key={p.id} className="border-t border-orange-50">
+                                <td className="px-3 py-1.5 font-mono text-slate-500">{p.reference}</td>
+                                <td className="px-3 py-1.5 text-slate-700">{p.designation}</td>
+                                <td className="px-3 py-1.5 text-center">{p.qte}</td>
+                                <td className="px-3 py-1.5 text-right font-semibold text-slate-800">{fmtEur(p.qte * p.prixUnit)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Kits de maintenance */}
+                  {kits.length > 0 && (
+                    <div className="mb-2">
+                      <p className="text-[10px] font-bold text-purple-600 uppercase tracking-wide mb-1">Kits de maintenance ({kits.length})</p>
+                      <div className="rounded-lg border border-purple-100 overflow-hidden">
+                        <table className="w-full text-xs">
+                          <thead><tr className="bg-purple-50">
+                            <th className="px-3 py-1.5 text-left text-[10px] font-semibold text-purple-400 uppercase">R\u00e9f\u00e9rence</th>
+                            <th className="px-3 py-1.5 text-left text-[10px] font-semibold text-purple-400 uppercase">D\u00e9signation</th>
+                            <th className="px-3 py-1.5 text-left text-[10px] font-semibold text-purple-400 uppercase">P\u00e9riodicit\u00e9</th>
+                            <th className="px-3 py-1.5 text-center text-[10px] font-semibold text-purple-400 uppercase">Qt\u00e9</th>
+                            <th className="px-3 py-1.5 text-right text-[10px] font-semibold text-purple-400 uppercase">Total</th>
+                          </tr></thead>
+                          <tbody>
+                            {kits.map(k => {
+                              const ps = periodStyle(k.periodicite);
+                              return (
+                                <tr key={k.id} className="border-t border-purple-50">
+                                  <td className="px-3 py-1.5 font-mono text-slate-500">{k.reference}</td>
+                                  <td className="px-3 py-1.5 text-slate-700">{k.designation}</td>
+                                  <td className="px-3 py-1.5"><span className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold" style={{ backgroundColor: ps.bg, color: ps.text, border: `1px solid ${ps.border}` }}>{k.periodicite}</span></td>
+                                  <td className="px-3 py-1.5 text-center">{k.qte}</td>
+                                  <td className="px-3 py-1.5 text-right font-semibold text-slate-800">{fmtEur(k.qte * k.prixUnit)}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* No action */}
+                  {!needsAction && dm.pieces.length === 0 && (
+                    <p className="text-xs text-green-600 italic">Aucune action requise \u2014 \u00e9quipement fonctionnel sans pi\u00e8ces en attente</p>
+                  )}
+
+                  {/* Sub-total */}
+                  {total > 0 && (
+                    <div className="mt-2 flex justify-end">
+                      <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-1.5 text-xs flex items-center gap-3">
+                        <span className="text-slate-500">Pi\u00e8ces : <span className="font-semibold text-slate-700">{fmtEur(pieceCost)}</span></span>
+                        <span className="text-slate-300">|</span>
+                        <span className="text-slate-500">Kits : <span className="font-semibold text-slate-700">{fmtEur(kitCost)}</span></span>
+                        <span className="text-slate-300">|</span>
+                        <span className="text-slate-700 font-bold">Total : {fmtEur(total)}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Site footer */}
+          <div className="px-5 py-3 border-t border-slate-100 bg-slate-50 flex justify-between items-center">
+            <p className="text-xs text-slate-500">{dms.length} \u00e9quipement(s) \u00b7 {dms.filter(d => d.critiques.length > 0).length} avec pi\u00e8ce(s) critique(s)</p>
+            <p className="text-sm font-bold text-slate-800">Budget site : {fmtEur(siteTotal)}</p>
+          </div>
+        </div>
+      ))}
+
+      {/* Grand total banner */}
+      <div className="rounded-xl px-5 py-4 flex items-center justify-between" style={{ background: "linear-gradient(135deg,#0a2540 0%,#1e3a5f 100%)" }}>
+        <div>
+          <p className="text-xs font-semibold text-blue-200 uppercase tracking-widest mb-0.5">Budget global maintenance \u2014 3 sites</p>
+          <p className="text-[10px] text-blue-300">Pi\u00e8ces d\u00e9tach\u00e9es + Kits de maintenance</p>
+        </div>
+        <p className="text-2xl font-bold text-white">{fmtEur(grandTotal)}</p>
+      </div>
+    </div>
+  );
+}
+
+/* ── Dashboard View ── */
+function DashboardView({ allData, onSelectSite }: { allData: Record<SiteKey, SiteData>; onSelectSite: (s: SiteKey) => void }) {
+  const globalStats = useMemo(() => {
+    let total = 0, hs = 0, att = 0, cost = 0, kitsCost = 0, kitsCount = 0;
+    for (const sk of SITE_KEYS) {
+      const dms = allData[sk].dms; total += dms.length;
+      const c = countStatuts(dms); hs += c.hs; att += c.att;
+      cost += totalPieces(dms);
+      kitsCost += totalKits(dms);
+      for (const dm of dms) kitsCount += (dm.kits ?? []).length;
+    }
+    return { total, hs, att, cost, kitsCost, kitsCount };
+  }, [allData]);
+
+  const allPieces = useMemo(() => {
+    const rows: { site: SiteKey; dm: string; piece: Piece }[] = [];
+    for (const sk of SITE_KEYS) for (const dm of allData[sk].dms) for (const p of dm.pieces) rows.push({ site: sk, dm: dm.modele, piece: p });
+    return rows.sort((a, b) => URGENCE_ORDER[a.piece.urgence] - URGENCE_ORDER[b.piece.urgence]);
+  }, [allData]);
+
+  const allKits = useMemo(() => {
+    const rows: { site: SiteKey; dm: string; kit: Kit }[] = [];
+    for (const sk of SITE_KEYS) for (const dm of allData[sk].dms) for (const k of (dm.kits ?? [])) rows.push({ site: sk, dm: dm.modele, kit: k });
+    return rows;
+  }, [allData]);
+
+  const kpis = [
+    { label: "Total \u00e9quipements", value: String(globalStats.total), color: "#3b82f6" },
+    { label: "Hors service", value: String(globalStats.hs), color: "#ef4444" },
+    { label: "En attente", value: String(globalStats.att), color: "#f59e0b" },
+    { label: "Co\u00fbt total pi\u00e8ces", value: fmtEur(globalStats.cost), color: "#8b5cf6" },
+    { label: "Co\u00fbt kits maintenance", value: fmtEur(globalStats.kitsCost), color: "#a855f7" },
+  ];
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        {kpis.map(k => (
+          <div key={k.label} className="rounded-xl bg-white border border-slate-100 shadow-sm px-4 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">{k.label}</p>
+            <p className="mt-1 text-2xl font-bold" style={{ color: k.color }}>{k.value}</p>
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        {SITE_KEYS.map(sk => {
+          const dms = allData[sk].dms; const counts = countStatuts(dms);
+          const pct = dms.length > 0 ? Math.round((counts.fonct / dms.length) * 100) : 0;
+          return (
+            <div key={sk} className="rounded-xl bg-white border border-slate-100 shadow-sm p-4 cursor-pointer hover:border-orange-300 transition-colors" onClick={() => onSelectSite(sk)}>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm font-bold text-slate-800">{sk}</p>
+                <span className="text-[10px] text-slate-400">{dms.length} \u00e9quip.</span>
+              </div>
+              <div className="flex flex-col gap-1 text-xs mb-3">
+                {[{ l: "Fonctionnel", n: counts.fonct, c: "#22c55e" }, { l: "En attente", n: counts.att, c: "#f59e0b" }, { l: "Hors service", n: counts.hs, c: "#ef4444" }, { l: "Inutilis\u00e9", n: counts.inut, c: "#94a3b8" }].map(r => (
+                  <div key={r.l} className="flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-slate-600"><span className="rounded-full" style={{ width: 6, height: 6, backgroundColor: r.c, flexShrink: 0 }} />{r.l}</span>
+                    <span className="font-semibold text-slate-800">{r.n}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden"><div className="h-1.5 rounded-full bg-green-500 transition-all" style={{ width: `${pct}%` }} /></div>
+              <p className="text-[10px] text-slate-400 mt-1 text-right">{pct}% fonctionnel</p>
+            </div>
+          );
+        })}
+      </div>
+      {/* All spare parts table */}
+      <div className="rounded-xl bg-white border border-slate-100 shadow-sm overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+          <p className="text-sm font-bold text-slate-800">Pi\u00e8ces n\u00e9cessaires \u2014 tous sites</p>
+          <p className="text-xs text-slate-400">{allPieces.length} r\u00e9f\u00e9rences \u00b7 {fmtEur(globalStats.cost)} total</p>
+        </div>
+        <table className="w-full text-xs">
+          <thead><tr className="border-b border-slate-50 bg-slate-50">
+            {["Site", "\u00c9quipement", "R\u00e9f\u00e9rence", "D\u00e9signation", "Qt\u00e9", "P.U.", "Total", "Urgence"].map(h => (
+              <th key={h} className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-slate-400">{h}</th>
+            ))}
+          </tr></thead>
+          <tbody>
+            {allPieces.map(({ site, dm, piece }, idx) => {
+              const us = urgenceStyle(piece.urgence);
+              return (
+                <tr key={`${site}-${dm}-${piece.id}-${idx}`} className="border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors">
+                  <td className="px-3 py-2 font-bold text-slate-500">{site}</td>
+                  <td className="px-3 py-2 text-slate-700">{dm}</td>
+                  <td className="px-3 py-2 font-mono text-slate-500">{piece.reference}</td>
+                  <td className="px-3 py-2 text-slate-700">{piece.designation}</td>
+                  <td className="px-3 py-2 text-center text-slate-700">{piece.qte}</td>
+                  <td className="px-3 py-2 text-slate-700">{fmtEur(piece.prixUnit)}</td>
+                  <td className="px-3 py-2 font-semibold text-slate-800">{fmtEur(piece.qte * piece.prixUnit)}</td>
+                  <td className="px-3 py-2"><span className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold" style={{ backgroundColor: us.bg, color: us.text, border: `1px solid ${us.border}` }}>{piece.urgence}</span></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {/* All maintenance kits table */}
+      <div className="rounded-xl bg-white border border-slate-100 shadow-sm overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+          <p className="text-sm font-bold text-slate-800">Kits de maintenance \u2014 tous sites</p>
+          <p className="text-xs text-slate-400">{globalStats.kitsCount} kit(s) \u00b7 {fmtEur(globalStats.kitsCost)} total</p>
+        </div>
+        {allKits.length === 0 ? <p className="text-xs text-slate-400 italic px-4 py-6 text-center">Aucun kit de maintenance enregistr\u00e9</p> : (
+          <table className="w-full text-xs">
+            <thead><tr className="border-b border-slate-50 bg-slate-50">
+              {["Site", "\u00c9quipement", "R\u00e9f\u00e9rence", "D\u00e9signation", "P\u00e9riodicit\u00e9", "Qt\u00e9", "P.U.", "Total", "Fournisseur"].map(h => (
+                <th key={h} className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-slate-400">{h}</th>
+              ))}
+            </tr></thead>
+            <tbody>
+              {allKits.map(({ site, dm, kit }, idx) => {
+                const ps = periodStyle(kit.periodicite);
+                return (
+                  <tr key={`${site}-${dm}-${kit.id}-${idx}`} className="border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors">
+                    <td className="px-3 py-2 font-bold text-slate-500">{site}</td>
+                    <td className="px-3 py-2 text-slate-700">{dm}</td>
+                    <td className="px-3 py-2 font-mono text-slate-500">{kit.reference}</td>
+                    <td className="px-3 py-2 text-slate-700">{kit.designation}</td>
+                    <td className="px-3 py-2"><span className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold" style={{ backgroundColor: ps.bg, color: ps.text, border: `1px solid ${ps.border}` }}>{kit.periodicite}</span></td>
+                    <td className="px-3 py-2 text-center text-slate-700">{kit.qte}</td>
+                    <td className="px-3 py-2 text-slate-700">{fmtEur(kit.prixUnit)}</td>
+                    <td className="px-3 py-2 font-semibold text-slate-800">{fmtEur(kit.qte * kit.prixUnit)}</td>
+                    <td className="px-3 py-2 text-slate-500">{kit.fournisseur ?? "\u2014"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Site View ── */
+function SiteView({ siteKey, data, selectedDM, selectedNodeId, onSelectDM, onNodeClick, isAdmin, onQuickStatus, onAddDM, onUpdateDM, onDeleteDM }: {
+  siteKey: SiteKey; data: SiteData; selectedDM: DM | null; selectedNodeId: string | null;
+  onSelectDM: (dm: DM) => void; onNodeClick: (id: string) => void;
+  isAdmin: boolean; onQuickStatus: (dmId: string, statut: Statut) => void;
+  onAddDM: (dm: DM) => void; onUpdateDM: (dm: DM) => void; onDeleteDM: (dmId: string) => void;
+}) {
+  const [subTab, setSubTab] = useState<SiteSubTab>("equipements");
+  const [showAddDMForm, setShowAddDMForm] = useState(false);
+
+  /* ── Pièce add form state ── */
+  const [showAddPiece, setShowAddPiece] = useState(false);
+  const [pDmId, setPDmId] = useState("");
+  const [pRef, setPRef] = useState(""); const [pDesig, setPDesig] = useState("");
+  const [pQte, setPQte] = useState("1"); const [pPrix, setPPrix] = useState("");
+  const [pUrg, setPUrg] = useState<Piece["urgence"]>("normale"); const [pFour, setPFour] = useState("");
+
+  /* ── Kit add form state ── */
+  const [showAddKit, setShowAddKit] = useState(false);
+  const [kDmId, setKDmId] = useState("");
+  const [kRef, setKRef] = useState(""); const [kDesig, setKDesig] = useState(""); const [kContenu, setKContenu] = useState("");
+  const [kQte, setKQte] = useState("1"); const [kPrix, setKPrix] = useState("");
+  const [kPeriod, setKPeriod] = useState<Kit["periodicite"]>("Annuel");
+  const [kFour, setKFour] = useState(""); const [kDernier, setKDernier] = useState("");
+
+  const { dms } = data;
+  const counts = countStatuts(dms);
+  const siteCost = totalPieces(dms);
+  const siteKitsCost = totalKits(dms);
+
+  /* allPieces & allKits carry the full DM object for mutations */
+  const allPieces = useMemo(() => {
+    const rows: { dm: DM; piece: Piece }[] = [];
+    for (const dm of dms) for (const p of dm.pieces) rows.push({ dm, piece: p });
+    return rows;
+  }, [dms]);
+  const allKits = useMemo(() => {
+    const rows: { dm: DM; kit: Kit }[] = [];
+    for (const dm of dms) for (const k of (dm.kits ?? [])) rows.push({ dm, kit: k });
+    return rows;
+  }, [dms]);
+
+  /* ── Piece helpers ── */
+  function submitAddPiece() {
+    if (!pDmId || !pRef || !pDesig || !pPrix) return;
+    const dm = dms.find(d => d.id === pDmId); if (!dm) return;
+    onUpdateDM({ ...dm, pieces: [...dm.pieces, { id: uid(), reference: pRef, designation: pDesig, qte: parseInt(pQte) || 1, prixUnit: parseFloat(pPrix) || 0, urgence: pUrg, fournisseur: pFour || undefined }] });
+    setPRef(""); setPDesig(""); setPQte("1"); setPPrix(""); setPFour(""); setShowAddPiece(false);
+  }
+  function deletePiece(dm: DM, pieceId: string) {
+    if (!window.confirm("Supprimer cette pi\u00e8ce ?")) return;
+    onUpdateDM({ ...dm, pieces: dm.pieces.filter(p => p.id !== pieceId) });
+  }
+
+  /* ── Kit helpers ── */
+  function submitAddKit() {
+    if (!kDmId || !kRef || !kDesig) return;
+    const dm = dms.find(d => d.id === kDmId); if (!dm) return;
+    onUpdateDM({ ...dm, kits: [...(dm.kits ?? []), { id: uid(), reference: kRef, designation: kDesig, contenu: kContenu, qte: parseInt(kQte) || 1, prixUnit: parseFloat(kPrix) || 0, periodicite: kPeriod, fournisseur: kFour || undefined, dernierUtilise: kDernier || undefined }] });
+    setKRef(""); setKDesig(""); setKContenu(""); setKQte("1"); setKPrix(""); setKFour(""); setKDernier(""); setShowAddKit(false);
+  }
+  function deleteKit(dm: DM, kitId: string) {
+    if (!window.confirm("Supprimer ce kit ?")) return;
+    onUpdateDM({ ...dm, kits: (dm.kits ?? []).filter(k => k.id !== kitId) });
+  }
+
+  const kpis = [
+    { label: "\u00c9QUIPEMENTS", value: String(dms.length), color: "#3b82f6" },
+    { label: "FONCTIONNEL", value: String(counts.fonct), color: "#22c55e" },
+    { label: "HORS SERVICE", value: String(counts.hs), color: "#ef4444" },
+    { label: "EN ATTENTE", value: String(counts.att), color: "#f59e0b" },
+    { label: "CO\u00dbT PI\u00c8CES", value: fmtEur(siteCost), color: "#8b5cf6" },
+    { label: "CO\u00dbT KITS", value: fmtEur(siteKitsCost), color: "#a855f7" },
+  ];
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* KPIs */}
+      <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+        {kpis.map(k => (
+          <div key={k.label} className="rounded-xl bg-white border border-slate-100 shadow-sm px-4 py-2.5 flex flex-col">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">{k.label}</p>
+            <p className="text-xl font-bold mt-0.5" style={{ color: k.color }}>{k.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Sub-tab bar + add buttons */}
+      <div className="flex gap-2 items-center flex-wrap">
+        {([["equipements", "\u00c9quipements"], ["pieces", "Pi\u00e8ces n\u00e9cessaires"], ["kits", "Kits de maintenance"]] as [SiteSubTab, string][]).map(([k, l]) => (
+          <button key={k} onClick={() => setSubTab(k)} className="rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors"
+            style={{ backgroundColor: subTab === k ? "#f97316" : "#fff", color: subTab === k ? "#fff" : "#64748b", border: "1px solid", borderColor: subTab === k ? "#f97316" : "#e2e8f0" }}>{l}</button>
+        ))}
+        {isAdmin && subTab === "equipements" && !showAddDMForm && (
+          <button onClick={() => setShowAddDMForm(true)} className="ml-auto rounded-lg px-3 py-1.5 text-xs font-semibold" style={{ backgroundColor: "#15803d", color: "#fff" }}>+ Ajouter \u00e9quipement</button>
+        )}
+        {isAdmin && subTab === "pieces" && !showAddPiece && (
+          <button onClick={() => { setShowAddPiece(true); setPDmId(dms[0]?.id ?? ""); }} className="ml-auto rounded-lg px-3 py-1.5 text-xs font-semibold" style={{ backgroundColor: "#f97316", color: "#fff" }}>+ Ajouter pi\u00e8ce</button>
+        )}
+        {isAdmin && subTab === "kits" && !showAddKit && (
+          <button onClick={() => { setShowAddKit(true); setKDmId(dms[0]?.id ?? ""); }} className="ml-auto rounded-lg px-3 py-1.5 text-xs font-semibold" style={{ backgroundColor: "#8b5cf6", color: "#fff" }}>+ Ajouter kit</button>
+        )}
+      </div>
+
+      {/* Add DM form */}
+      {showAddDMForm && isAdmin && (
+        <AddDMForm onAdd={(dm) => { onAddDM(dm); setShowAddDMForm(false); }} onCancel={() => setShowAddDMForm(false)} />
+      )}
+
+      {/* ── ÉQUIPEMENTS tab ── */}
+      {subTab === "equipements" && (
+        <>
+          <div className="rounded-xl bg-white border border-slate-100 shadow-sm overflow-hidden">
+            <table className="w-full text-xs">
+              <thead><tr className="border-b border-slate-100 bg-slate-50">
+                {["MOD\u00c8LE", "MARQUE", "N\u00b0 S\u00c9RIE", "STATUT", "SERVICE", "PMS", isAdmin ? "ADMIN" : "ACTIONS"].map(h => (
+                  <th key={h} className="px-3 py-2.5 text-left text-[10px] font-semibold uppercase tracking-widest text-slate-400">{h}</th>
+                ))}
+              </tr></thead>
+              <tbody>
+                {dms.map(dm => {
+                  const isSelected = selectedDM?.id === dm.id;
+                  return (
+                    <tr key={dm.id} onClick={() => onSelectDM(dm)} className="border-b border-slate-50 last:border-0 cursor-pointer transition-colors"
+                      style={{ backgroundColor: isSelected ? "#fff7ed" : "transparent" }}
+                      onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.backgroundColor = "#f8fafc"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = isSelected ? "#fff7ed" : "transparent"; }}>
+                      <td className="px-3 py-2.5 font-semibold text-slate-800">{dm.modele}</td>
+                      <td className="px-3 py-2.5 text-slate-500">{dm.marque ?? "\u2014"}</td>
+                      <td className="px-3 py-2.5 text-slate-500 font-mono">{dm.serie}</td>
+                      <td className="px-3 py-2.5"><StatutBadge statut={dm.statut} /></td>
+                      <td className="px-3 py-2.5 text-slate-600">{dm.service ?? "\u2014"}</td>
+                      <td className="px-3 py-2.5 text-slate-600">{dm.pms}</td>
+                      <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
+                        {isAdmin ? (
+                          <div className="flex items-center gap-1">
+                            <button title="Modifier (ouvrir fiche)" onClick={() => onSelectDM(dm)}
+                              className="rounded px-2 py-1 text-[11px] font-bold" style={{ backgroundColor: "#fff7ed", color: "#f97316", border: "1px solid #fed7aa" }}>
+                              \u270e Modifier
+                            </button>
+                            <button title="Supprimer cet \u00e9quipement" onClick={() => { if (window.confirm("Supprimer \"" + dm.modele + "\" ?")) onDeleteDM(dm.id); }}
+                              className="rounded px-2 py-1 text-[11px] font-bold" style={{ backgroundColor: "#fee2e2", color: "#dc2626", border: "1px solid #fecaca" }}>
+                              \u2715 Suppr.
+                            </button>
+                          </div>
+                        ) : (
+                          dm.actions > 0 ? <span className="rounded-full bg-red-100 text-red-700 px-2 py-0.5 text-[10px] font-bold">{dm.actions}</span> : <span className="text-slate-300">\u2014</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="rounded-xl bg-white border border-slate-100 shadow-sm p-4" style={{ minHeight: 300 }}>
+            <p className="text-xs font-semibold text-slate-500 mb-2">Sch\u00e9ma r\u00e9seau PSA / gaz m\u00e9dicaux</p>
+            <NetworkGraph nodes={data.nodes} edges={data.edges} selectedId={selectedNodeId} onNodeClick={onNodeClick}
+              dms={dms} isAdmin={isAdmin} onQuickStatus={onQuickStatus} />
+          </div>
+        </>
+      )}
+
+      {/* ── PIÈCES tab ── */}
+      {subTab === "pieces" && (
+        <div className="rounded-xl bg-white border border-slate-100 shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+            <p className="text-sm font-bold text-slate-800">Pi\u00e8ces n\u00e9cessaires \u2014 {siteKey}</p>
+            <p className="text-xs text-slate-500 font-semibold">{fmtEur(siteCost)} total estim\u00e9</p>
+          </div>
+
+          {/* Add piece form */}
+          {showAddPiece && isAdmin && (
+            <div className="p-4 border-b border-orange-100 bg-orange-50 flex flex-col gap-2">
+              <p className="text-xs font-bold text-orange-700">Nouvelle pi\u00e8ce d\u00e9tach\u00e9e</p>
+              <div>
+                <label className={labelCls}>Equipement</label>
+                <select value={pDmId} onChange={e => setPDmId(e.target.value)} className={inputCls}>
+                  {dms.map(d => <option key={d.id} value={d.id}>{d.modele}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div><label className={labelCls}>R\u00e9f\u00e9rence *</label><input value={pRef} onChange={e => setPRef(e.target.value)} className={inputCls} placeholder="REF-001" /></div>
+                <div><label className={labelCls}>Qt\u00e9</label><input type="number" min="1" value={pQte} onChange={e => setPQte(e.target.value)} className={inputCls} /></div>
+              </div>
+              <div><label className={labelCls}>D\u00e9signation *</label><input value={pDesig} onChange={e => setPDesig(e.target.value)} className={inputCls} placeholder="Nom de la pi\u00e8ce" /></div>
+              <div className="grid grid-cols-2 gap-2">
+                <div><label className={labelCls}>Prix unit. (\u20ac) *</label><input type="number" value={pPrix} onChange={e => setPPrix(e.target.value)} className={inputCls} /></div>
+                <div><label className={labelCls}>Urgence</label>
+                  <select value={pUrg} onChange={e => setPUrg(e.target.value as Piece["urgence"])} className={inputCls}>
+                    <option value="critique">Critique</option><option value="normale">Normale</option><option value="basse">Basse</option>
+                  </select>
+                </div>
+              </div>
+              <div><label className={labelCls}>Fournisseur</label><input value={pFour} onChange={e => setPFour(e.target.value)} className={inputCls} placeholder="Optionnel" /></div>
+              <div className="flex gap-2">
+                <button onClick={submitAddPiece} className={btnSm} style={{ backgroundColor: "#f97316", color: "#fff" }}>+ Ajouter</button>
+                <button onClick={() => setShowAddPiece(false)} className={btnSm} style={{ color: "#64748b" }}>Annuler</button>
+              </div>
+            </div>
+          )}
+
+          {allPieces.length === 0 && !showAddPiece ? <p className="text-xs text-slate-400 italic px-4 py-6 text-center">Aucune pi\u00e8ce n\u00e9cessaire pour ce site</p> : (
+            allPieces.length > 0 && (
+              <table className="w-full text-xs">
+                <thead><tr className="border-b border-slate-50 bg-slate-50">
+                  {["\u00c9quipement", "R\u00e9f\u00e9rence", "D\u00e9signation", "Qt\u00e9", "P.U.", "Total", "Urgence", "Fournisseur", ...(isAdmin ? [""] : [])].map((h, i) => (
+                    <th key={i} className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-slate-400">{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody>
+                  {allPieces.sort((a, b) => URGENCE_ORDER[a.piece.urgence] - URGENCE_ORDER[b.piece.urgence]).map(({ dm, piece }, idx) => {
+                    const us = urgenceStyle(piece.urgence);
+                    return (
+                      <tr key={`${dm.id}-${piece.id}-${idx}`} className="border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors">
+                        <td className="px-3 py-2 text-slate-700 font-medium">{dm.modele}</td>
+                        <td className="px-3 py-2 font-mono text-slate-500">{piece.reference}</td>
+                        <td className="px-3 py-2 text-slate-700">{piece.designation}</td>
+                        <td className="px-3 py-2 text-center">{piece.qte}</td>
+                        <td className="px-3 py-2">{fmtEur(piece.prixUnit)}</td>
+                        <td className="px-3 py-2 font-semibold text-slate-800">{fmtEur(piece.qte * piece.prixUnit)}</td>
+                        <td className="px-3 py-2"><span className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold" style={{ backgroundColor: us.bg, color: us.text, border: `1px solid ${us.border}` }}>{piece.urgence}</span></td>
+                        <td className="px-3 py-2 text-slate-400">{piece.fournisseur ?? "\u2014"}</td>
+                        {isAdmin && (
+                          <td className="px-3 py-2">
+                            <button onClick={() => deletePiece(dm, piece.id)} className="rounded px-2 py-0.5 text-[11px] font-bold" style={{ backgroundColor: "#fee2e2", color: "#dc2626", border: "1px solid #fecaca" }} title="Supprimer">\u2715</button>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )
+          )}
+        </div>
+      )}
+
+      {/* ── KITS tab ── */}
+      {subTab === "kits" && (
+        <div className="rounded-xl bg-white border border-slate-100 shadow-sm overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+            <p className="text-sm font-bold text-slate-800">Kits de maintenance \u2014 {siteKey}</p>
+            <p className="text-xs text-slate-500 font-semibold">{fmtEur(siteKitsCost)} total estim\u00e9 \u00b7 {allKits.length} kit(s)</p>
+          </div>
+
+          {/* Add kit form */}
+          {showAddKit && isAdmin && (
+            <div className="p-4 border-b border-purple-100 bg-purple-50 flex flex-col gap-2">
+              <p className="text-xs font-bold text-purple-700">Nouveau kit de maintenance</p>
+              <div>
+                <label className={labelCls}>Equipement</label>
+                <select value={kDmId} onChange={e => setKDmId(e.target.value)} className={inputCls}>
+                  {dms.map(d => <option key={d.id} value={d.id}>{d.modele}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div><label className={labelCls}>R\u00e9f\u00e9rence *</label><input value={kRef} onChange={e => setKRef(e.target.value)} className={inputCls} placeholder="KIT-001" /></div>
+                <div><label className={labelCls}>Qt\u00e9</label><input type="number" min="1" value={kQte} onChange={e => setKQte(e.target.value)} className={inputCls} /></div>
+              </div>
+              <div><label className={labelCls}>D\u00e9signation *</label><input value={kDesig} onChange={e => setKDesig(e.target.value)} className={inputCls} placeholder="Nom du kit" /></div>
+              <div><label className={labelCls}>Contenu</label><textarea value={kContenu} onChange={e => setKContenu(e.target.value)} className={inputCls} rows={2} placeholder="ex: filtre, joint, courroie..." /></div>
+              <div className="grid grid-cols-2 gap-2">
+                <div><label className={labelCls}>Prix unit. (\u20ac)</label><input type="number" value={kPrix} onChange={e => setKPrix(e.target.value)} className={inputCls} /></div>
+                <div><label className={labelCls}>P\u00e9riodicit\u00e9</label>
+                  <select value={kPeriod} onChange={e => setKPeriod(e.target.value as Kit["periodicite"])} className={inputCls}>
+                    {KIT_PERIODICITE.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div><label className={labelCls}>Fournisseur</label><input value={kFour} onChange={e => setKFour(e.target.value)} className={inputCls} placeholder="Optionnel" /></div>
+                <div><label className={labelCls}>Dernier utilis\u00e9</label><input type="date" value={kDernier} onChange={e => setKDernier(e.target.value)} className={inputCls} /></div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={submitAddKit} className={btnSm} style={{ backgroundColor: "#8b5cf6", color: "#fff" }}>+ Ajouter</button>
+                <button onClick={() => setShowAddKit(false)} className={btnSm} style={{ color: "#64748b" }}>Annuler</button>
+              </div>
+            </div>
+          )}
+
+          {allKits.length === 0 && !showAddKit ? <p className="text-xs text-slate-400 italic px-4 py-6 text-center">Aucun kit de maintenance enregistr\u00e9 pour ce site</p> : (
+            allKits.length > 0 && (
+              <table className="w-full text-xs">
+                <thead><tr className="border-b border-slate-50 bg-slate-50">
+                  {["\u00c9quipement", "R\u00e9f\u00e9rence", "D\u00e9signation", "P\u00e9riodicit\u00e9", "Qt\u00e9", "P.U.", "Total", "Fournisseur", "Dernier", ...(isAdmin ? [""] : [])].map((h, i) => (
+                    <th key={i} className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-widest text-slate-400">{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody>
+                  {allKits.map(({ dm, kit }, idx) => {
+                    const ps = periodStyle(kit.periodicite);
+                    return (
+                      <tr key={`${dm.id}-${kit.id}-${idx}`} className="border-b border-slate-50 last:border-0 hover:bg-slate-50 transition-colors">
+                        <td className="px-3 py-2 text-slate-700 font-medium">{dm.modele}</td>
+                        <td className="px-3 py-2 font-mono text-slate-500">{kit.reference}</td>
+                        <td className="px-3 py-2 text-slate-700">{kit.designation}</td>
+                        <td className="px-3 py-2"><span className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold" style={{ backgroundColor: ps.bg, color: ps.text, border: `1px solid ${ps.border}` }}>{kit.periodicite}</span></td>
+                        <td className="px-3 py-2 text-center">{kit.qte}</td>
+                        <td className="px-3 py-2">{fmtEur(kit.prixUnit)}</td>
+                        <td className="px-3 py-2 font-semibold text-slate-800">{fmtEur(kit.qte * kit.prixUnit)}</td>
+                        <td className="px-3 py-2 text-slate-400">{kit.fournisseur ?? "\u2014"}</td>
+                        <td className="px-3 py-2 text-slate-400">{kit.dernierUtilise ?? "\u2014"}</td>
+                        {isAdmin && (
+                          <td className="px-3 py-2">
+                            <button onClick={() => deleteKit(dm, kit.id)} className="rounded px-2 py-0.5 text-[11px] font-bold" style={{ backgroundColor: "#f3e8ff", color: "#7c3aed", border: "1px solid #ddd6fe" }} title="Supprimer">\u2715</button>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Admin Modal ── */
+function AdminModal({ onAuth, onClose }: { onAuth: () => void; onClose: () => void }) {
+  const [pw, setPw] = useState(""); const [err, setErr] = useState(false);
+  function submit() { if (pw === "kbio2026") onAuth(); else { setErr(true); setTimeout(() => setErr(false), 1500); } }
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.55)" }}>
+      <div className="bg-white rounded-2xl shadow-2xl p-6 w-80 flex flex-col gap-4">
+        <div><p className="text-base font-bold text-slate-900">Mode administrateur</p>
+          <p className="text-xs text-slate-400 mt-0.5">Entrez le mot de passe pour acc\u00e9der aux fonctions d\u2019\u00e9dition.</p></div>
+        <input type="password" value={pw} onChange={e => setPw(e.target.value)} onKeyDown={e => e.key === "Enter" && submit()}
+          placeholder="Mot de passe..." className="rounded-lg border px-3 py-2 text-sm focus:outline-none"
+          style={{ borderColor: err ? "#ef4444" : "#e2e8f0" }} autoFocus />
+        {err && <p className="text-xs text-red-500 -mt-2">Mot de passe incorrect</p>}
+        <div className="flex gap-2 justify-end">
+          <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-slate-100">Annuler</button>
+          <button onClick={submit} className="rounded-lg px-4 py-2 text-sm font-semibold text-white" style={{ backgroundColor: "#f97316" }}>Connexion</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Main Page ── */
+const LS_KEY = "psa-audit-data";
+
+export default function AuditRwandaPage() {
+  const [view, setView] = useState<View>("DASHBOARD");
+  const [allData, setAllData] = useState<Record<SiteKey, SiteData>>(DEFAULT_DATA);
+  const [selectedDM, setSelectedDM] = useState<DM | null>(null);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showAdminModal, setShowAdminModal] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        setAllData(prev => {
+          const merged = { ...prev };
+          for (const sk of SITE_KEYS) {
+            if (parsed[sk]?.dms) {
+              const migrated = (parsed[sk].dms as DM[]).map(d => ({
+                ...d,
+                historique: d.historique ?? [],
+                pieces: d.pieces ?? [],
+                kits: d.kits ?? [],
+              }));
+              merged[sk] = { ...prev[sk], dms: migrated };
+            }
+          }
+          return merged;
+        });
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    try {
+      const payload: Record<string, { dms: DM[] }> = {};
+      for (const sk of SITE_KEYS) payload[sk] = { dms: allData[sk].dms };
+      localStorage.setItem(LS_KEY, JSON.stringify(payload));
+    } catch { /* ignore */ }
+  }, [allData]);
+
+  function handleSelectDM(dm: DM) { setSelectedDM(dm); setSelectedNodeId(null); }
+  function handleNodeClick(nodeId: string) {
+    setSelectedNodeId(nodeId);
+    if (view !== "DASHBOARD" && view !== "PLAN") { const matched = allData[view as SiteKey].dms.find(d => d.id === nodeId); setSelectedDM(matched ?? null); }
+  }
+  function handleViewChange(v: View) { setView(v); setSelectedDM(null); setSelectedNodeId(null); }
+
+  function handleUpdateDM(updatedDM: DM) {
+    if (view === "DASHBOARD" || view === "PLAN") return;
+    const sk = view as SiteKey;
+    setAllData(prev => ({ ...prev, [sk]: { ...prev[sk], dms: prev[sk].dms.map(d => d.id === updatedDM.id ? updatedDM : d) } }));
+    setSelectedDM(prev => prev?.id === updatedDM.id ? updatedDM : prev);
+  }
+
+  function handleDeleteDM() {
+    if (view === "DASHBOARD" || view === "PLAN" || !selectedDM) return;
+    const sk = view as SiteKey;
+    setAllData(prev => ({ ...prev, [sk]: { ...prev[sk], dms: prev[sk].dms.filter(d => d.id !== selectedDM.id) } }));
+    setSelectedDM(null); setSelectedNodeId(null);
+  }
+
+  function handleDeleteDMById(dmId: string) {
+    if (view === "DASHBOARD" || view === "PLAN") return;
+    const sk = view as SiteKey;
+    setAllData(prev => ({ ...prev, [sk]: { ...prev[sk], dms: prev[sk].dms.filter(d => d.id !== dmId) } }));
+    if (selectedDM?.id === dmId) { setSelectedDM(null); setSelectedNodeId(null); }
+  }
+
+  function handleAddDM(newDM: DM) {
+    if (view === "DASHBOARD" || view === "PLAN") return;
+    const sk = view as SiteKey;
+    setAllData(prev => ({ ...prev, [sk]: { ...prev[sk], dms: [...prev[sk].dms, newDM] } }));
+  }
+
+  function handleQuickStatus(dmId: string, statut: Statut) {
+    if (view === "DASHBOARD" || view === "PLAN") return;
+    const sk = view as SiteKey;
+    setAllData(prev => ({ ...prev, [sk]: { ...prev[sk], dms: prev[sk].dms.map(d => d.id === dmId ? { ...d, statut } : d) } }));
+    if (selectedDM?.id === dmId) setSelectedDM(prev => prev ? { ...prev, statut } : null);
+  }
+
+  const currentSiteData = (view !== "DASHBOARD" && view !== "PLAN") ? allData[view as SiteKey] : null;
+
+  return (
+    <div className="flex h-screen overflow-hidden bg-[#f4f6fb]" style={{ fontFamily: "var(--font-geist-sans), system-ui, sans-serif" }}>
+      {showAdminModal && <AdminModal onAuth={() => { setIsAdmin(true); setShowAdminModal(false); }} onClose={() => setShowAdminModal(false)} />}
+
+      {/* Sidebar */}
+      <aside className="flex w-60 shrink-0 flex-col bg-[#0a2540] text-white overflow-y-auto">
+        <div className="flex items-center gap-3 px-4 py-4 border-b border-white/10">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#f97316] text-white font-bold text-sm">K</div>
+          <div><p className="font-bold text-sm leading-tight">Audit Rwanda</p><p className="text-[10px] text-slate-400 leading-tight">Biom\u00e9dical PSA</p></div>
+          {isAdmin && <span className="ml-auto rounded-full bg-orange-500 text-white text-[10px] font-bold px-2 py-0.5 shrink-0">ADMIN</span>}
+        </div>
+        <nav className="flex flex-col gap-1 px-3 py-3">
+          <p className="text-[9px] font-bold uppercase tracking-widest text-slate-500 px-2 mb-1">Navigation</p>
+          <button onClick={() => handleViewChange("DASHBOARD")} className="rounded-lg px-3 py-2 text-sm font-semibold text-left transition-colors flex items-center gap-2"
+            style={{ backgroundColor: view === "DASHBOARD" ? "#f97316" : "transparent", color: view === "DASHBOARD" ? "#fff" : "#94a3b8" }}>
+            {"\u229e"} Tableau de bord
+          </button>
+          <button onClick={() => handleViewChange("PLAN")} className="rounded-lg px-3 py-2 text-sm font-semibold text-left transition-colors flex items-center gap-2"
+            style={{ backgroundColor: view === "PLAN" ? "#8b5cf6" : "transparent", color: view === "PLAN" ? "#fff" : "#94a3b8" }}>
+            {"\u25a6"} Plan d\u2019actions
+          </button>
+          {SITE_KEYS.map(sk => {
+            const hs = allData[sk].dms.filter(d => d.statut === "Hors service").length;
+            return (
+              <button key={sk} onClick={() => handleViewChange(sk)} className="rounded-lg px-3 py-2 text-sm font-semibold text-left transition-colors flex items-center justify-between"
+                style={{ backgroundColor: view === sk ? "#f97316" : "transparent", color: view === sk ? "#fff" : "#94a3b8" }}>
+                <span className="flex items-center gap-2">{"\u2299"} {sk}</span>
+                {hs > 0 && <span className="rounded-full text-[10px] font-bold px-1.5 py-0.5" style={{ backgroundColor: view === sk ? "rgba(255,255,255,0.25)" : "#ef4444", color: "#fff" }}>{hs}</span>}
+              </button>
+            );
+          })}
+        </nav>
+        <div className="flex-1" />
+        <div className="px-3 pb-4 flex flex-col gap-2 border-t border-white/10 pt-3">
+          {isAdmin ? (
+            <button onClick={() => setIsAdmin(false)} className="w-full rounded-lg px-3 py-2 text-xs font-semibold text-left" style={{ border: "1px solid #f97316", color: "#f97316" }}>Quitter le mode admin</button>
+          ) : (
+            <button onClick={() => setShowAdminModal(true)} className="w-full rounded-lg px-3 py-2 text-xs font-semibold text-left flex items-center gap-2" style={{ border: "1px solid rgba(255,255,255,0.15)", color: "#94a3b8" }}>
+              {"\ud83d\udd12"} Mode administrateur
+            </button>
+          )}
+        </div>
+      </aside>
+
+      {/* Main */}
+      <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
+        <div className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3 shrink-0 gap-4">
+          <div className="min-w-0">
+            <h1 className="font-bold text-slate-900 text-sm truncate">
+              {view === "DASHBOARD" ? "Tableau de bord global \u2014 3 sites Rwanda" : view === "PLAN" ? "Plan d\u2019actions de maintenance \u2014 tous sites" : (currentSiteData?.titre ?? view)}
+            </h1>
+            {view !== "DASHBOARD" && view !== "PLAN" && currentSiteData && <p className="text-[10px] text-slate-400 mt-0.5">Mise \u00e0 jour : {currentSiteData.maj}</p>}
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {isAdmin ? (
+              <div className="flex items-center gap-2">
+                <span className="rounded-full px-3 py-1 text-xs font-bold" style={{ backgroundColor: "#fff7ed", color: "#ea580c", border: "1px solid #fed7aa" }}>✓ Mode Admin actif</span>
+                <button onClick={() => setIsAdmin(false)} className="rounded-lg px-3 py-1.5 text-xs font-semibold" style={{ border: "1px solid #f97316", color: "#f97316" }}>Quitter</button>
+              </div>
+            ) : (
+              <button onClick={() => setShowAdminModal(true)} className="rounded-lg px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5"
+                style={{ backgroundColor: "#f97316", color: "#fff" }}>
+                {"\ud83d\udd12"} Connexion Admin
+              </button>
+            )}
+            <button onClick={() => window.print()} className="rounded-lg px-3 py-1.5 text-xs font-semibold flex items-center gap-1.5"
+              style={{ backgroundColor: "#f1f5f9", color: "#475569", border: "1px solid #e2e8f0" }}>{"\u2399"} Exporter</button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5">
+          {view === "DASHBOARD" ? (
+            <DashboardView allData={allData} onSelectSite={sk => handleViewChange(sk)} />
+          ) : view === "PLAN" ? (
+            <PlanActionView allData={allData} isAdmin={isAdmin} />
+          ) : (
+            <SiteView siteKey={view as SiteKey} data={allData[view as SiteKey]} selectedDM={selectedDM} selectedNodeId={selectedNodeId}
+              onSelectDM={handleSelectDM} onNodeClick={handleNodeClick} isAdmin={isAdmin} onQuickStatus={handleQuickStatus}
+              onAddDM={handleAddDM} onUpdateDM={handleUpdateDM} onDeleteDM={handleDeleteDMById} />
+          )}
+        </div>
+      </div>
+
+      {/* Right Panel */}
+      <aside className="flex w-80 shrink-0 flex-col border-l border-slate-200 bg-white overflow-hidden">
+        <div className="border-b border-slate-100 px-4 py-3 shrink-0"><p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Fiche \u00e9quipement</p></div>
+        <div className="flex-1 overflow-hidden flex flex-col">
+          <RightPanel dm={selectedDM} isAdmin={isAdmin && view !== "DASHBOARD" && view !== "PLAN"} onClose={() => { setSelectedDM(null); setSelectedNodeId(null); }}
+            onUpdate={handleUpdateDM} onDelete={handleDeleteDM} />
+        </div>
+      </aside>
+    </div>
+  );
+}

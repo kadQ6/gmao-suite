@@ -1,78 +1,134 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
-import { IMG } from "@/lib/marketing-images";
+import { missions } from "@/components/marketing/data";
 
 export const metadata: Metadata = {
-  title: "References",
-  description: "Exemples de missions et contextes accompagnes par K'BIO — contenus a valider avec vos references officielles.",
+  title: "Nos missions",
+  description:
+    "Missions biomedicales et architecturales realisees ou en cours par K'BIO en France et a l'international.",
 };
 
-const cases = [
-  {
-    title: "CHU — deploiement GMAO multi-sites",
-    context: "Pilotage centralise des equipements et des interventions, harmonisation des procedures et reporting pour la direction technique.",
-    status: "Fiche a valider : chiffres, logos et visuels institutionnels.",
-    image: IMG.heroHospital,
-  },
-  {
-    title: "Programme oxygene — appui technique",
-    context: "Coordination technique, conformite et suivi de deploiement terrain avec les equipes locales et les bailleurs.",
-    status: "Contenu indicatif — ajuster selon missions reelles et accords de communication.",
-    image: IMG.techMedical,
-  },
-  {
-    title: "Centre de dialyse — reception et mise en service",
-    context: "Assurance qualite des installations, essais de reception et transfert de competences vers les equipes soignantes et techniques.",
-    status: "A completer avec jalons et indicateurs mesurables.",
-    image: IMG.lab,
-  },
-];
+function MissionCard({ m, priority = false }: { m: (typeof missions)[number]; priority?: boolean }) {
+  return (
+    <Link
+      href={`/references/${m.slug}`}
+      className="group relative block aspect-[4/5] overflow-hidden rounded-2xl shadow-md transition hover:shadow-2xl"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={m.image}
+        alt={m.title}
+        loading={priority ? "eager" : "lazy"}
+        className="absolute inset-0 h-full w-full object-cover transition duration-700 group-hover:scale-105"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#001a33] via-[#001a33]/55 to-transparent" />
+      <div className="relative flex h-full flex-col justify-end p-6 text-white">
+        {m.status === "en-cours" ? (
+          <span className="mb-3 inline-flex w-fit items-center gap-2 rounded-full bg-kbio-accent/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide">
+            <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-white" />
+            En cours
+          </span>
+        ) : (
+          <span className="mb-3 inline-flex w-fit rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide backdrop-blur">
+            {m.type === "biomedical" ? "Biomedical" : m.type === "architecture" ? "Architecture" : "AMO"}
+          </span>
+        )}
+        <h3 className="font-display text-xl font-semibold leading-tight">{m.title}</h3>
+        <p className="mt-1 text-sm text-slate-200">{m.location}</p>
+        <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-kbio-teal-light">
+          Voir le projet <span aria-hidden>&rarr;</span>
+        </span>
+      </div>
+    </Link>
+  );
+}
 
 export default function ReferencesPage() {
+  const france = missions.filter((m) => m.zone === "france");
+  const international = missions.filter((m) => m.zone === "international");
+  const enCours = missions.filter((m) => m.status === "en-cours");
+
   return (
     <main>
-      <section className="border-b border-teal-100 bg-gradient-to-b from-indigo-50/40 to-white">
-        <div className="mx-auto max-w-6xl px-4 py-14 lg:px-6 lg:py-20">
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-teal-600">References</p>
-          <h1 className="mt-4 text-3xl font-semibold tracking-tight text-kbio-navy sm:text-4xl lg:text-5xl">
-            Projets et experiences
-          </h1>
-          <p className="mt-6 max-w-3xl text-lg leading-relaxed text-slate-600">
-            Des illustrations de contextes types — chaque fiche pourra etre enrichie de livrables, indicateurs et
-            temoignages apres validation interne et accord des parties prenantes.
+      <section className="relative overflow-hidden">
+        <div className="absolute inset-0 kbio-hero-accent" aria-hidden />
+        <div
+          className="absolute inset-0 bg-cover bg-center opacity-25"
+          style={{ backgroundImage: "url(/missions/medipole.jpg)" }}
+          aria-hidden
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-[#02294d]/40" aria-hidden />
+        <div className="relative mx-auto max-w-6xl px-4 py-20 lg:px-6 lg:py-24">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-kbio-teal-light">
+            Nos missions
           </p>
+          <h1 className="mt-4 max-w-3xl font-display text-4xl font-semibold leading-tight text-white sm:text-5xl">
+            Nos projets marquants, en France et a l&apos;international.
+          </h1>
+          <p className="mt-5 max-w-2xl text-base leading-relaxed text-slate-100/90 sm:text-lg">
+            Avec un solide portefeuille de projets, notre expertise biomedicale a contribue de
+            maniere significative a l&apos;avancement des clients accompagnes.
+          </p>
+          {enCours.length > 0 ? (
+            <div className="mt-8 flex items-center gap-2">
+              <span className="pulse-dot inline-flex h-2 w-2 rounded-full bg-kbio-accent" />
+              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-kbio-accent">
+                {enCours.length} mission{enCours.length > 1 ? "s" : ""} en cours
+              </span>
+            </div>
+          ) : null}
         </div>
       </section>
 
-      <div className="mx-auto max-w-6xl px-4 py-16 lg:px-6">
-        <div className="grid gap-8 lg:grid-cols-3">
-          {cases.map((c) => (
-            <article
-              key={c.title}
-              className="flex flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-md transition hover:-translate-y-0.5 hover:shadow-xl"
-            >
-              <div className="relative aspect-[16/10]">
-                <Image src={c.image} alt="" fill className="object-cover" sizes="(max-width: 1024px) 100vw, 33vw" />
-                <div className="absolute inset-0 bg-gradient-to-t from-kbio-navy/60 via-transparent to-transparent" />
-              </div>
-              <div className="flex flex-1 flex-col p-6">
-                <h2 className="text-lg font-semibold text-kbio-navy">{c.title}</h2>
-                <p className="mt-3 flex-1 text-sm leading-relaxed text-slate-600">{c.context}</p>
-                <p className="mt-4 text-xs text-slate-400">{c.status}</p>
-              </div>
-            </article>
+      {/* France */}
+      <section id="france" className="scroll-mt-20 mx-auto max-w-6xl px-4 py-16 lg:px-6">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-kbio-teal">
+          France
+        </p>
+        <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight text-kbio-navy sm:text-4xl">
+          Nos projets en France
+        </h2>
+        <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {france.map((m, i) => (
+            <MissionCard key={m.slug} m={m} priority={i < 3} />
           ))}
         </div>
+      </section>
 
-        <p className="mt-14 rounded-xl border border-amber-100 bg-amber-50/80 p-4 text-sm text-amber-900">
-          Besoin d&apos;une presentation adaptee a un appel d&apos;offres ou un bailleur ?{" "}
-          <Link href="/contact" className="font-semibold text-teal-700 underline-offset-2 hover:underline">
-            Contactez-nous
-          </Link>{" "}
-          pour un dossier sur mesure.
-        </p>
-      </div>
+      {/* International */}
+      <section id="international" className="scroll-mt-20 bg-kbio-surface py-16">
+        <div className="mx-auto max-w-6xl px-4 lg:px-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-kbio-teal">
+            International
+          </p>
+          <h2 className="mt-3 font-display text-3xl font-semibold tracking-tight text-kbio-navy sm:text-4xl">
+            Nos projets a l&apos;international
+          </h2>
+          <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {international.map((m) => (
+              <MissionCard key={m.slug} m={m} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4 py-20 lg:px-6">
+        <div className="rounded-3xl bg-gradient-to-br from-kbio-navy to-[#0a5591] p-8 text-white sm:p-12">
+          <h2 className="font-display text-2xl font-semibold sm:text-3xl">
+            Liberez le potentiel de vos projets biomedicaux.
+          </h2>
+          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-100/90">
+            Nous preparons des dossiers de reference sur mesure pour les appels d&apos;offres et les
+            financeurs institutionnels.
+          </p>
+          <Link
+            href="/contact"
+            className="mt-7 inline-flex rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-kbio-navy transition hover:bg-slate-100"
+          >
+            Nous contacter
+          </Link>
+        </div>
+      </section>
     </main>
   );
 }

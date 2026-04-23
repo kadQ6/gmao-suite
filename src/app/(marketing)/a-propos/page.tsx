@@ -1,93 +1,169 @@
 import type { Metadata } from "next";
-import { Heart, Target } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
-import { IMG } from "@/lib/marketing-images";
 
 export const metadata: Metadata = {
-  title: "A propos",
+  title: "À propos",
   description:
-    "Vision, mission et presence de K'BIO : ingenierie santé, terrain et outils numériques au service des établissements.",
+    "K'BIO : cabinet de conseil en ingénierie biomédicale et architecture hospitalière. Notre équipe, notre approche, nos implantations.",
 };
 
+const values = [
+  {
+    title: "Exigence technique",
+    body: "Des livrables documentés, des spécifications testées, une réception contrôlée.",
+  },
+  {
+    title: "Terrain",
+    body: "La décision se prend au plus près des équipes, dans les services, avec les utilisateurs.",
+  },
+  {
+    title: "Continuité",
+    body: "Un accompagnement de l'étude initiale à la mise en service, puis au pilotage par la donnée.",
+  },
+];
+
+const team = [
+  {
+    name: "Kader OMAR",
+    role: "Fondateur — Ingénieur biomédical",
+    bio: "Expert en ingénierie biomédicale et architecture hospitalière. Plus de 10 ans d'expérience sur projets français et internationaux (France, Afrique, Moyen-Orient).",
+    image: "/missions/team-placeholder.svg",
+  },
+  {
+    name: "Dagmo MAHDI",
+    role: "Ingénieure biomédicale",
+    bio: "Ingénieure biomédicale, spécialisée dans la gestion de parc, la programmation technique et l'AMO sur projets multi-sites.",
+    image: "/missions/team-placeholder.svg",
+  },
+];
+
 const entities = [
-  { name: "K'BIO sas", role: "Siege, ingenierie et coordination de programmes" },
-  { name: "K'BIO sarl", role: "Proximite terrain et deploiement regional" },
-  { name: "RIAL Tech", role: "Partenaire technique (selon missions)" },
-  { name: "CiMB", role: "Maintenance biomedicale et conformite" },
+  { name: "K'BIO", role: "Cabinet français — Jassans-Riottier" },
+  { name: "K'BIO Djibouti", role: "Filiale CiMB / Horncare — Corne de l'Afrique" },
+  { name: "Réseau partenaires", role: "Fournisseurs et intégrateurs internationaux" },
 ];
 
 export default function AboutPage() {
   return (
     <main>
-      <section className="border-b border-teal-100 bg-gradient-to-b from-white to-cyan-50/40">
-        <div className="mx-auto max-w-6xl px-4 py-14 lg:px-6 lg:py-20">
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-teal-600">A propos</p>
-          <h1 className="mt-4 text-3xl font-semibold tracking-tight text-kbio-navy sm:text-4xl lg:text-5xl">
-            K&apos;BIO Group
+      <section className="relative overflow-hidden bg-kbio-navy">
+        <div className="absolute inset-0 bg-gradient-to-br from-kbio-navy via-kbio-navy/95 to-[#0a5591]/80" aria-hidden />
+        <div className="relative mx-auto max-w-6xl px-4 py-20 lg:px-6 lg:py-28">
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-kbio-teal-light">
+            À propos
+          </p>
+          <h1 className="mt-4 max-w-3xl font-display text-4xl font-bold leading-tight text-white sm:text-5xl">
+            Un cabinet dédié aux systèmes hospitaliers exigeants.
           </h1>
-          <p className="mt-6 max-w-3xl text-lg leading-relaxed text-slate-600">
-            Nous accompagnons les acteurs de la sante dans la conception, le deploiement et le pilotage de systemes
-            hospitaliers durables. Notre approche combine expertise technique, comprehension du terrain et outils
-            numeriques lorsqu&apos;ils accelerent la decision et la conformite.
+          <p className="mt-5 max-w-2xl text-base leading-relaxed text-slate-200/90 sm:text-lg">
+            K&apos;BIO accompagne les établissements de santé, les ministères et les bailleurs dans la
+            conception, le déploiement et le pilotage de leurs infrastructures biomédicales.
           </p>
         </div>
       </section>
 
-      <div className="mx-auto grid max-w-6xl gap-12 px-4 py-16 lg:grid-cols-2 lg:items-start lg:px-6">
-        <div className="relative aspect-[4/3] overflow-hidden rounded-3xl shadow-xl ring-1 ring-slate-200/80 lg:sticky lg:top-28">
-          <Image src={IMG.teamMeeting} alt="Equipe projet" fill className="object-cover" sizes="(max-width: 1024px) 100vw, 45vw" />
-          <div className="absolute inset-0 bg-gradient-to-t from-kbio-navy/40 to-transparent" />
-        </div>
-        <div className="space-y-10">
-          <section className="rounded-2xl border border-teal-100 bg-white p-8 shadow-md">
-            <div className="flex items-center gap-3">
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-100 text-teal-700">
-                <Heart className="h-5 w-5" aria-hidden />
-              </span>
-              <h2 className="text-xl font-semibold text-kbio-navy">Vision</h2>
-            </div>
-            <p className="mt-4 text-sm leading-relaxed text-slate-600">
-              Des infrastructures et des dispositifs medicaux au service des patients, avec des systemes documentes,
-              maintenables et pilotables dans la duree — sans sacrifier la securite ni la lisibilite pour les equipes.
-            </p>
-          </section>
-          <section className="rounded-2xl border border-indigo-100 bg-white p-8 shadow-md">
-            <div className="flex items-center gap-3">
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700">
-                <Target className="h-5 w-5" aria-hidden />
-              </span>
-              <h2 className="text-xl font-semibold text-kbio-navy">Mission</h2>
-            </div>
-            <p className="mt-4 text-sm leading-relaxed text-slate-600">
-              Securiser les investissements sante en alignant besoins cliniques, contraintes techniques et realites de
-              mise en oeuvre — des ministeres aux equipes hospitalieres, en restant transparents sur les risques et les
-              options.
-            </p>
-          </section>
-        </div>
-      </div>
-
-      <section className="border-t border-slate-200 bg-slate-50/80 py-16">
+      <section className="bg-kbio-surface py-20">
         <div className="mx-auto max-w-6xl px-4 lg:px-6">
-          <h2 className="text-2xl font-semibold text-kbio-navy">Presence et entites</h2>
-          <p className="mt-2 max-w-3xl text-sm text-slate-600">
-            Structuration indicative — a ajuster avec vos informations officielles et votre communication institutionnelle.
+          <div className="grid gap-8 lg:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-kbio-teal">Vision</p>
+              <h2 className="mt-3 font-display text-2xl font-bold text-kbio-navy">
+                Des hôpitaux durables et maintenables
+              </h2>
+              <p className="mt-4 text-base leading-relaxed text-slate-600">
+                Nous croyons qu&apos;un système hospitalier performant repose sur des choix
+                techniques documentés, une conception centrée sur les flux et des outils de pilotage
+                exploitables au quotidien par les équipes.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-kbio-teal">Mission</p>
+              <h2 className="mt-3 font-display text-2xl font-bold text-kbio-navy">
+                Sécuriser les investissements santé
+              </h2>
+              <p className="mt-4 text-base leading-relaxed text-slate-600">
+                Aligner besoins cliniques, contraintes techniques et réalités de mise en œuvre.
+                Fournir à chaque acteur — du ministère au chef de service — les éléments de
+                décision et les livrables opérationnels qui font la différence.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-10 grid gap-4 sm:grid-cols-3">
+            {values.map((v) => (
+              <div key={v.title} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h3 className="font-display text-base font-bold text-kbio-navy">{v.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-slate-600">{v.body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="py-20">
+        <div className="mx-auto max-w-6xl px-4 lg:px-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-kbio-teal">Équipe</p>
+          <h2 className="mt-3 font-display text-3xl font-bold tracking-tight text-kbio-navy sm:text-4xl">
+            Une équipe d&apos;ingénieurs sur le terrain
+          </h2>
+          <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-600">
+            Des profils techniques complémentaires, une culture du livrable et de la conformité.
           </p>
-          <ul className="mt-10 grid gap-4 sm:grid-cols-2">
+
+          <div className="mt-12 grid gap-8 sm:grid-cols-2 lg:max-w-4xl">
+            {team.map((m) => (
+              <article
+                key={m.name}
+                className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
+              >
+                <div className="aspect-[4/3] w-full overflow-hidden bg-slate-100">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={m.image}
+                    alt={m.name}
+                    loading="lazy"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <div className="p-6">
+                  <h3 className="font-display text-lg font-bold text-kbio-navy">{m.name}</h3>
+                  <p className="text-sm font-semibold text-kbio-teal">{m.role}</p>
+                  <p className="mt-3 text-sm leading-relaxed text-slate-600">{m.bio}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-kbio-surface py-20">
+        <div className="mx-auto max-w-6xl px-4 lg:px-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-kbio-teal">Implantations</p>
+          <h2 className="mt-3 font-display text-3xl font-bold tracking-tight text-kbio-navy">
+            France, Djibouti et au-delà
+          </h2>
+          <ul className="mt-10 grid gap-4 sm:grid-cols-3">
             {entities.map((e) => (
               <li
                 key={e.name}
-                className="rounded-xl border border-white bg-white p-6 shadow-md ring-1 ring-slate-100 transition hover:ring-teal-200"
+                className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
               >
-                <p className="font-semibold text-kbio-navy">{e.name}</p>
+                <p className="font-display text-lg font-bold text-kbio-navy">{e.name}</p>
                 <p className="mt-2 text-sm text-slate-600">{e.role}</p>
               </li>
             ))}
           </ul>
-          <div className="mt-12">
-            <Link href="/contact" className="text-sm font-semibold text-teal-600 hover:underline">
-              Echanger sur votre projet
+
+          <div className="mt-14 overflow-hidden rounded-3xl bg-gradient-to-br from-kbio-navy to-[#0a5591] p-8 text-white shadow-xl sm:p-12">
+            <h2 className="font-display text-2xl font-bold">Travaillons ensemble</h2>
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-200/90">
+              Présentation, références, offre de collaboration : échangeons sur votre projet.
+            </p>
+            <Link
+              href="/contact"
+              className="mt-6 inline-flex rounded-full bg-white px-6 py-3 text-sm font-bold text-kbio-navy shadow-md transition hover:bg-slate-100"
+            >
+              Nous contacter
             </Link>
           </div>
         </div>

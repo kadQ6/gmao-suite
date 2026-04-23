@@ -1,80 +1,100 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f0f7fb;
-  --foreground: #0c1a2e;
-  --kbio-navy: #0a2540;
-  --kbio-teal: #0d9488;
-  --kbio-accent: #0369a1;
-  --kbio-mint: #14b8a6;
-  --kbio-violet: #6366f1;
-  --kbio-rose: #f43f5e;
-  --kbio-sun: #f59e0b;
+  --background: #ffffff;
+  --foreground: #0f172a;
+  --kbio-navy: #003f72;
+  --kbio-navy-dark: #002c52;
+  --kbio-teal: #0891b2;
+  --kbio-teal-light: #22a9c7;
+  --kbio-accent: #f97316;
+  --kbio-surface: #f6f8fb;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-kbio-navy: var(--kbio-navy);
+  --color-kbio-navy-dark: var(--kbio-navy-dark);
   --color-kbio-teal: var(--kbio-teal);
+  --color-kbio-teal-light: var(--kbio-teal-light);
   --color-kbio-accent: var(--kbio-accent);
-  --color-kbio-mint: var(--kbio-mint);
-  --color-kbio-violet: var(--kbio-violet);
-  --color-kbio-rose: var(--kbio-rose);
-  --color-kbio-sun: var(--kbio-sun);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-kbio-surface: var(--kbio-surface);
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-montserrat);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-inter), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/*
- * Boutons portail : CSS pur (pas @apply) pour que le rendu soit correct
- * meme si le JIT Tailwind ou un vieux cache CDN ne applique pas les utilitaires.
- */
-.portal-btn-primary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9999px;
-  padding: 0.625rem 1.25rem;
-  font-size: 0.875rem;
-  line-height: 1.25rem;
-  font-weight: 600;
-  color: #ffffff;
-  border: none;
-  cursor: pointer;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
-  background-color: var(--kbio-accent, #0369a1);
-  transition: filter 0.15s ease, opacity 0.15s ease;
+h1, h2, h3, h4 {
+  font-family: var(--font-montserrat), system-ui, sans-serif;
+  letter-spacing: -0.015em;
 }
-.portal-btn-primary:hover:not(:disabled) {
-  filter: brightness(0.92);
+
+.kbio-gradient {
+  background: linear-gradient(140deg, #023565 0%, #0a5591 45%, #1470ae 100%);
 }
-.portal-btn-primary:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
+
+.kbio-gradient-soft {
+  background: linear-gradient(160deg, #eef4fb 0%, #e6f0f9 50%, #dceaf4 100%);
 }
-.portal-btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9999px;
-  padding: 0.625rem 1.25rem;
-  font-size: 0.875rem;
-  line-height: 1.25rem;
-  font-weight: 500;
-  color: #334155;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  cursor: pointer;
-  transition: background-color 0.15s ease, border-color 0.15s ease;
+
+.kbio-hero-accent {
+  background:
+    radial-gradient(ellipse at top right, rgba(8, 145, 178, 0.18), transparent 55%),
+    radial-gradient(ellipse at bottom left, rgba(249, 115, 22, 0.1), transparent 50%),
+    linear-gradient(150deg, #023565 0%, #0a5591 45%, #1470ae 100%);
 }
-.portal-btn-secondary:hover {
-  background: #f8fafc;
-  border-color: #cbd5e1;
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.marquee-track {
+  animation: marquee 40s linear infinite;
+}
+
+.marquee-track:hover {
+  animation-play-state: paused;
+}
+
+@keyframes fade-slide {
+  0% { opacity: 0; transform: translateY(16px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(0.85); }
+}
+
+.pulse-dot {
+  animation: pulse-dot 1.6s ease-in-out infinite;
+}
+
+@keyframes hero-zoom {
+  from { transform: scale(1.02); }
+  to { transform: scale(1.08); }
+}
+
+.hero-slide-active {
+  animation: hero-zoom 10s ease-out forwards;
 }
