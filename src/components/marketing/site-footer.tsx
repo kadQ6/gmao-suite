@@ -123,8 +123,8 @@ export function SiteFooter() {
             </p>
             <ul className="mt-4 space-y-3 text-sm text-slate-300">
               <li>
-                <a href="mailto:contact@kbio-conseil.fr" className="transition hover:text-white">
-                  contact@kbio-conseil.fr
+                <a href="mailto:contact@kbio-conseil.com" className="transition hover:text-white">
+                  contact@kbio-conseil.com
                 </a>
               </li>
               <li>

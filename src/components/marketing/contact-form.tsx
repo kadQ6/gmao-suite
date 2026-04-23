@@ -15,8 +15,8 @@ const infos = [
   },
   {
     label: "Email",
-    value: "contact@kbio-conseil.fr",
-    href: "mailto:contact@kbio-conseil.fr",
+    value: "contact@kbio-conseil.com",
+    href: "mailto:contact@kbio-conseil.com",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
         <path d="M3 7l9 6 9-6M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round" />
@@ -283,7 +283,7 @@ export function ContactForm() {
                   <path d="M12 8v4m0 4h.01" strokeLinecap="round" />
                 </svg>
                 Envoi impossible. Réessayez ou écrivez à{" "}
-                <a href="mailto:contact@kbio-conseil.fr" className="underline">contact@kbio-conseil.fr</a>.
+                <a href="mailto:contact@kbio-conseil.com" className="underline">contact@kbio-conseil.com</a>.
               </div>
             ) : null}
 

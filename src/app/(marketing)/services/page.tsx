@@ -232,10 +232,10 @@ export default function ServicesPage() {
                   Formulaire de contact
                 </Link>
                 <a
-                  href="mailto:contact@kbio-conseil.fr"
+                  href="mailto:contact@kbio-conseil.com"
                   className="inline-flex rounded-full border border-white/30 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
                 >
-                  contact@kbio-conseil.fr
+                  contact@kbio-conseil.com
                 </a>
               </div>
             </div>
