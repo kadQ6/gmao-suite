@@ -22,7 +22,7 @@ export const missions: Mission[] = [
     status: "en-cours",
     zone: "france",
     year: "Depuis octobre 2016",
-    image: "/missions/ch-rives.jpeg",
+    image: "/missions/ch-rives.webp",
     summary:
       "Mission d'ingenierie biomedicale sur 2 sites hospitaliers.",
     stats: [
@@ -49,7 +49,7 @@ export const missions: Mission[] = [
     status: "realisee",
     zone: "france",
     year: "Mars 2017 - Mars 2019",
-    image: "/missions/medipole.jpg",
+    image: "/missions/medipole.webp",
     summary:
       "Regroupement de 7 etablissements de sante lyonnais sur un seul site.",
     stats: [
@@ -76,7 +76,7 @@ export const missions: Mission[] = [
     status: "realisee",
     zone: "france",
     year: "2015 - 2018",
-    image: "/missions/chi-compiegne.jpeg",
+    image: "/missions/chi-compiegne.webp",
     summary:
       "Bloc operatoire et ambulatoire en deux phases.",
     stats: [
@@ -103,7 +103,7 @@ export const missions: Mission[] = [
     status: "realisee",
     zone: "france",
     year: "Fevrier 2018 - 2020",
-    image: "/missions/chi-poissy.jpg",
+    image: "/missions/chi-poissy.webp",
     summary:
       "Identification des impacts biomedicaux et validation des besoins pour un nouveau batiment.",
     stats: [
@@ -130,7 +130,7 @@ export const missions: Mission[] = [
     status: "realisee",
     zone: "france",
     year: "Mars 2017 - Avril 2018",
-    image: "/missions/ghsif-melun.jpeg",
+    image: "/missions/ghsif-melun.webp",
     summary:
       "Demenagement du Centre Hospitalier de Melun sur un nouveau site.",
     stats: [
@@ -157,7 +157,7 @@ export const missions: Mission[] = [
     status: "realisee",
     zone: "france",
     year: "Mars 2017 - Juin 2018",
-    image: "/missions/ch-trevoux.jpeg",
+    image: "/missions/ch-trevoux.webp",
     summary:
       "Audit et gestion biomedicale multi-sites (340 lits, 350 equipements).",
     stats: [
@@ -280,20 +280,20 @@ export const heroSlides = [
     title: "Concevoir des hopitaux qui fonctionnent.",
     subtitle:
       "Audit de parc, programmation et AMO pour des etablissements de sante plus surs et mieux pilotes.",
-    image: "/missions/medipole.jpg",
+    image: "/missions/medipole.webp",
   },
   {
     eyebrow: "Architecture hospitaliere",
     title: "Du programme a la reception.",
     subtitle:
       "Programmation fonctionnelle, integration des equipements critiques et coordination des lots techniques.",
-    image: "/missions/chi-poissy.jpg",
+    image: "/missions/chi-poissy.webp",
   },
   {
     eyebrow: "Projets internationaux",
     title: "Accompagner les projets de sante.",
     subtitle:
       "Appui technique aux bailleurs, coordination terrain et reporting pour des deploiements en Afrique et au-dela.",
-    image: "/missions/chi-compiegne.jpeg",
+    image: "/missions/chi-compiegne.webp",
   },
 ];

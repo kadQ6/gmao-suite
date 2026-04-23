@@ -10,7 +10,7 @@ const activities = [
     title: "Architecture hospitaliere",
     description:
       "Expertise biomedicale dans les projets de conception architecturale hospitaliere, de reorganisation, de reamenagement, de demenagement.",
-    image: "/missions/chi-compiegne.jpeg",
+    image: "/missions/chi-compiegne.webp",
   },
   {
     id: "conseil-biomedical",
@@ -18,7 +18,7 @@ const activities = [
     title: "Ingenierie biomedicale",
     description:
       "Accompagnement de la gestion biomedicale interne. Audit, externalisation et mise a disposition de competences pour ameliorer l'offre de soins.",
-    image: "/missions/biomedical-pc.jpg",
+    image: "/missions/biomedical-pc.webp",
   },
 ];
 

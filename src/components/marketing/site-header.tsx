@@ -29,6 +29,7 @@ const nav: NavItem[] = [
       { href: "/services#architecture", label: "Architecture hospitaliere" },
     ],
   },
+  { href: "/actualites", label: "Actualités" },
   { href: "/contact", label: "Contact" },
 ];
 

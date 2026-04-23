@@ -38,7 +38,7 @@ const services = [
         ],
       },
     ],
-    image: "/missions/biomedical-pc.jpg",
+    image: "/missions/biomedical-pc.webp",
     standards: ["ISO 13485", "IEC 60601", "EN 62353", "NF S99-170"],
     cta: { label: "Nous contacter", href: "/contact" },
   },
@@ -73,7 +73,7 @@ const services = [
         ],
       },
     ],
-    image: "/missions/chi-compiegne.jpeg",
+    image: "/missions/chi-compiegne.webp",
     standards: ["RT 2020", "PMR", "NF S90-351 (salles propres)", "Règles blocs opératoires"],
     cta: { label: "Voir nos missions", href: "/references" },
   },
@@ -86,7 +86,7 @@ export default function ServicesPage() {
       <section className="relative overflow-hidden bg-kbio-navy">
         <div
           className="absolute inset-0 bg-cover bg-center opacity-20"
-          style={{ backgroundImage: "url(/missions/medipole.jpg)" }}
+          style={{ backgroundImage: "url(/missions/medipole.webp)" }}
           aria-hidden
         />
         <div className="absolute inset-0 bg-gradient-to-br from-kbio-navy via-kbio-navy/95 to-[#0a5591]/80" aria-hidden />

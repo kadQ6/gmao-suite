@@ -14,7 +14,7 @@ export default function ContactPage() {
       <section className="relative overflow-hidden bg-kbio-navy">
         <div
           className="absolute inset-0 bg-cover bg-center opacity-15"
-          style={{ backgroundImage: "url(/missions/biomedical-pc.jpg)" }}
+          style={{ backgroundImage: "url(/missions/biomedical-pc.webp)" }}
           aria-hidden
         />
         <div className="absolute inset-0 bg-gradient-to-br from-kbio-navy via-kbio-navy/95 to-[#0a5591]/80" aria-hidden />

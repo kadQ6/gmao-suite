@@ -54,7 +54,7 @@ export default function ReferencesPage() {
         <div className="absolute inset-0 kbio-hero-accent" aria-hidden />
         <div
           className="absolute inset-0 bg-cover bg-center opacity-25"
-          style={{ backgroundImage: "url(/missions/medipole.jpg)" }}
+          style={{ backgroundImage: "url(/missions/medipole.webp)" }}
           aria-hidden
         />
         <div className="absolute inset-0 bg-gradient-to-b from-transparent to-[#02294d]/40" aria-hidden />

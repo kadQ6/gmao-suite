@@ -109,6 +109,11 @@ export function SiteFooter() {
                 </Link>
               </li>
               <li>
+                <Link href="/actualites" className="text-slate-300 transition hover:text-white">
+                  Actualités
+                </Link>
+              </li>
+              <li>
                 <Link href="/contact" className="text-slate-300 transition hover:text-white">
                   Contact
                 </Link>
