@@ -7,7 +7,7 @@ config({ path: path.join(root, ".env") });
 module.exports = {
   apps: [
     {
-      name: "gmao-suite",
+      name: "kbio-conseil",
       script: "node_modules/next/dist/bin/next",
       args: "start -p 3000",
       cwd: root,
