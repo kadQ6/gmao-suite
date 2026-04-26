@@ -33,8 +33,9 @@ jobs:
             cd "$PROJECT_DIR"
             echo "OK Dossier OK"
 
-            git pull --ff-only origin main
-            echo "OK Code mis a jour"
+            git fetch origin main
+            git reset --hard origin/main
+            echo "OK Code synchronise avec GitHub"
 
             npm ci --prefer-offline --no-audit
             echo "OK Dependances OK"
